@@ -1,0 +1,3110 @@
+{
+  "item": [
+    {
+      "id": "2708a067-20f4-4da0-70c7-9696acc0f51c",
+      "name": "Account",
+      "description": {
+        "content": "Identify the business behind the current secret key.",
+        "type": "text/plain"
+      },
+      "item": [
+        {
+          "id": "5bce50ed-025b-93b9-bb22-d60b6cec5866",
+          "name": "Retrieve the current account",
+          "request": {
+            "name": "Retrieve the current account",
+            "description": {
+              "content": "Returns the business tied to the secret key you sent, the key's mode, and the masked key.\nThis is the ideal first call to confirm your credentials and environment.\n",
+              "type": "text/plain"
+            },
+            "url": {
+              "path": [
+                "account"
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "query": [],
+              "variable": []
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "method": "GET"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Retrieve the current account: HTTP 200', () => pm.response.to.have.status(200));",
+                  "if (pm.response.code >= 400) { const e = pm.response.json().error || {}; console.log(`FirstFlip error ${e.code}: ${e.message}`); }"
+                ]
+              }
+            }
+          ],
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          }
+        }
+      ],
+      "event": []
+    },
+    {
+      "id": "1e1ff1ca-c30f-ede7-fc3c-b646313e627e",
+      "name": "Charges",
+      "description": {
+        "content": "A one-time request for payment. Create it, share its hosted URL, and act on `charge.paid`.",
+        "type": "text/plain"
+      },
+      "item": [
+        {
+          "id": "0b677132-b417-4201-d3a8-5de01ea4acda",
+          "name": "Create a charge",
+          "request": {
+            "name": "Create a charge",
+            "description": "Step 4. Creates a charge for ₦32,000 paid in USDT. Change `amount`, `currency` or `reference` in **Body**. A fresh Idempotency-Key is sent every time, so pressing Send twice makes two charges; reuse a key to retry safely. The new id is saved to `charge_id`.",
+            "url": {
+              "path": [
+                "charges"
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "query": [],
+              "variable": []
+            },
+            "header": [
+              {
+                "disabled": false,
+                "description": "(Required) A unique key you generate (e.g. a UUID v4), up to 255 characters. Required on every POST\nthat creates or changes something. Retry a failed request with the same key to replay the\noriginal response instead of acting twice.\n",
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 25000,\n  \"currency\": \"NGN\",\n  \"description\": \"Order\",\n  \"reference\": \"order_1048\",\n  \"pay_asset\": \"USDT\",\n  \"pay_network\": \"trc20\",\n  \"customer\": {\n    \"name\": \"Jane Doe\",\n    \"email\": \"jane@example.com\"\n  },\n  \"metadata\": {\n    \"order_id\": \"1048\",\n    \"channel\": \"web\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Create a charge: HTTP 201', () => pm.response.to.have.status(201));",
+                  "if (pm.response.code >= 400) { const e = pm.response.json().error || {}; console.log(`FirstFlip error ${e.code}: ${e.message}`); }",
+                  "const b = pm.response.json(); if (b.id) pm.collectionVariables.set('charge_id', b.id);"
+                ]
+              }
+            }
+          ],
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          }
+        },
+        {
+          "id": "f835663d-b084-eb93-294e-49f27a303cae",
+          "name": "List charges",
+          "request": {
+            "name": "List charges",
+            "description": "Your charges, newest first. Tick the query params to filter by `status` or your own `reference`.",
+            "url": {
+              "path": [
+                "charges"
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "query": [
+                {
+                  "disabled": true,
+                  "key": "limit",
+                  "value": "20",
+                  "description": "Page size, 1–100 (default 20)."
+                },
+                {
+                  "disabled": true,
+                  "key": "starting_after",
+                  "value": "ch_test_2a3b4c5d6e7f80910a1b2c3d",
+                  "description": "A cursor — the id of the last object on the previous page. Returns the next page (older) items."
+                },
+                {
+                  "disabled": true,
+                  "key": "created_from",
+                  "value": "2026-11-04T00:00:00Z",
+                  "description": "Only objects created at or after this instant. RFC 3339; a bare date means midnight UTC.\nWith `created_before` it forms a half-open window, so `created_from=2026-11-04&created_before=2026-11-05`\nis exactly that UTC day, and consecutive windows never count an object twice.\n"
+                },
+                {
+                  "disabled": true,
+                  "key": "created_before",
+                  "value": "2026-11-05T00:00:00Z",
+                  "description": "Only objects created strictly before this instant. RFC 3339; a bare date means midnight UTC."
+                },
+                {
+                  "disabled": true,
+                  "key": "status",
+                  "value": "pending",
+                  "description": "Only charges in this state."
+                },
+                {
+                  "disabled": true,
+                  "key": "reference",
+                  "value": "order_1042",
+                  "description": "Only the charge carrying this merchant reference."
+                }
+              ],
+              "variable": []
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "method": "GET"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('List charges: HTTP 200', () => pm.response.to.have.status(200));",
+                  "if (pm.response.code >= 400) { const e = pm.response.json().error || {}; console.log(`FirstFlip error ${e.code}: ${e.message}`); }"
+                ]
+              }
+            }
+          ],
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          }
+        },
+        {
+          "id": "ee8f4652-da14-1571-7194-9cd7dcb9b62c",
+          "name": "Retrieve a charge",
+          "request": {
+            "name": "Retrieve a charge",
+            "description": "Uses the saved `charge_id`. After Simulate a payment, `status` is `paid`.",
+            "url": {
+              "path": [
+                "charges",
+                ":id"
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "disabled": false,
+                  "type": "any",
+                  "value": "{{charge_id}}",
+                  "key": "id",
+                  "description": "(Required) The charge id (`ch_test_…`)."
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "method": "GET"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Retrieve a charge: HTTP 200', () => pm.response.to.have.status(200));",
+                  "if (pm.response.code >= 400) { const e = pm.response.json().error || {}; console.log(`FirstFlip error ${e.code}: ${e.message}`); }"
+                ]
+              }
+            }
+          ],
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          }
+        },
+        {
+          "id": "e2727ddd-bd35-2472-07de-e88401e1d6cc",
+          "name": "Cancel a charge",
+          "request": {
+            "name": "Cancel a charge",
+            "description": {
+              "content": "Cancels a `pending` charge so it can no longer be paid. Only a pending charge can be\ncancelled; any other state returns `409 charge_not_pending`. Emits `charge.cancelled`.\nRequires an `Idempotency-Key` header.\n",
+              "type": "text/plain"
+            },
+            "url": {
+              "path": [
+                "charges",
+                ":id",
+                "cancel"
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "disabled": false,
+                  "type": "any",
+                  "value": "{{charge_id}}",
+                  "key": "id",
+                  "description": "(Required) The charge id (`ch_test_…`)."
+                }
+              ]
+            },
+            "header": [
+              {
+                "disabled": false,
+                "description": "(Required) A unique key you generate (e.g. a UUID v4), up to 255 characters. Required on every POST\nthat creates or changes something. Retry a failed request with the same key to replay the\noriginal response instead of acting twice.\n",
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Cancel a charge: HTTP 200', () => pm.response.to.have.status(200));",
+                  "if (pm.response.code >= 400) { const e = pm.response.json().error || {}; console.log(`FirstFlip error ${e.code}: ${e.message}`); }"
+                ]
+              }
+            }
+          ],
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          }
+        },
+        {
+          "id": "2e43d780-f22d-8ee1-601c-55a9aa3ea0b7",
+          "name": "Simulate payment (test mode)",
+          "request": {
+            "name": "Simulate payment (test mode)",
+            "description": {
+              "content": "**Test mode only.** Marks a `pending` charge as `paid`, exactly as a real customer payment\nwould, and emits `charge.paid`. Use it to exercise your webhook and fulfilment flow without\nmoving crypto. Any non-pending charge returns `409 charge_not_pending`. Requires an\n`Idempotency-Key` header. (The same effect is available to a human tester via the\n\"Simulate payment\" button on the hosted pay page.)\n",
+              "type": "text/plain"
+            },
+            "url": {
+              "path": [
+                "charges",
+                ":id",
+                "simulate_payment"
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "disabled": false,
+                  "type": "any",
+                  "value": "{{charge_id}}",
+                  "key": "id",
+                  "description": "(Required) The charge id (`ch_test_…`)."
+                }
+              ]
+            },
+            "header": [
+              {
+                "disabled": false,
+                "description": "(Required) A unique key you generate (e.g. a UUID v4), up to 255 characters. Required on every POST\nthat creates or changes something. Retry a failed request with the same key to replay the\noriginal response instead of acting twice.\n",
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Simulate payment (test mode): HTTP 200', () => pm.response.to.have.status(200));",
+                  "if (pm.response.code >= 400) { const e = pm.response.json().error || {}; console.log(`FirstFlip error ${e.code}: ${e.message}`); }"
+                ]
+              }
+            }
+          ],
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          }
+        }
+      ],
+      "event": []
+    },
+    {
+      "id": "6757bfcc-ddcb-ac80-e301-e980e69885a2",
+      "name": "Payment links",
+      "description": {
+        "content": "A reusable link. Each visitor who opens it gets a fresh charge; shareable and payable many times.",
+        "type": "text/plain"
+      },
+      "item": [
+        {
+          "id": "12a92294-1a61-6752-267f-e4874800d103",
+          "name": "Create a payment link",
+          "request": {
+            "name": "Create a payment link",
+            "description": "One link, many customers: each one who opens it gets their own charge. The id is saved to `payment_link_id`.",
+            "url": {
+              "path": [
+                "payment_links"
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "query": [],
+              "variable": []
+            },
+            "header": [
+              {
+                "disabled": false,
+                "description": "(Required) A unique key you generate (e.g. a UUID v4), up to 255 characters. Required on every POST\nthat creates or changes something. Retry a failed request with the same key to replay the\noriginal response instead of acting twice.\n",
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 10,\n  \"currency\": \"USD\",\n  \"description\": \"Monthly membership\",\n  \"pay_asset\": \"USDT\",\n  \"pay_network\": \"trc20\",\n  \"max_uses\": 100,\n  \"metadata\": {\n    \"plan\": \"pro\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Create a payment link: HTTP 201', () => pm.response.to.have.status(201));",
+                  "if (pm.response.code >= 400) { const e = pm.response.json().error || {}; console.log(`FirstFlip error ${e.code}: ${e.message}`); }",
+                  "const b = pm.response.json(); if (b.id) pm.collectionVariables.set('payment_link_id', b.id);"
+                ]
+              }
+            }
+          ],
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          }
+        },
+        {
+          "id": "60c6bb74-4877-cb31-fbca-1d8e40700bd9",
+          "name": "List payment links",
+          "request": {
+            "name": "List payment links",
+            "description": "Your links with how many times each was used.",
+            "url": {
+              "path": [
+                "payment_links"
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "query": [
+                {
+                  "disabled": true,
+                  "key": "limit",
+                  "value": "20",
+                  "description": "Page size, 1–100 (default 20)."
+                },
+                {
+                  "disabled": true,
+                  "key": "created_from",
+                  "value": "2026-11-04T00:00:00Z",
+                  "description": "Only objects created at or after this instant. RFC 3339; a bare date means midnight UTC.\nWith `created_before` it forms a half-open window, so `created_from=2026-11-04&created_before=2026-11-05`\nis exactly that UTC day, and consecutive windows never count an object twice.\n"
+                },
+                {
+                  "disabled": true,
+                  "key": "created_before",
+                  "value": "2026-11-05T00:00:00Z",
+                  "description": "Only objects created strictly before this instant. RFC 3339; a bare date means midnight UTC."
+                },
+                {
+                  "disabled": true,
+                  "key": "starting_after",
+                  "value": "pl_test_1a2b3c4d5e6f70819a0b1c2d",
+                  "description": "A cursor — the id of the last payment link on the previous page. Returns the next page (older) items."
+                },
+                {
+                  "disabled": true,
+                  "key": "active",
+                  "value": "true",
+                  "description": "`true` for active links only, `false` for deactivated only."
+                }
+              ],
+              "variable": []
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "method": "GET"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('List payment links: HTTP 200', () => pm.response.to.have.status(200));",
+                  "if (pm.response.code >= 400) { const e = pm.response.json().error || {}; console.log(`FirstFlip error ${e.code}: ${e.message}`); }"
+                ]
+              }
+            }
+          ],
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          }
+        },
+        {
+          "id": "5705920d-9ce9-1314-c521-7e3ace87f3c0",
+          "name": "Retrieve a payment link",
+          "request": {
+            "name": "Retrieve a payment link",
+            "description": "Uses the saved `payment_link_id`. Open the `url` in a browser to see the customer page.",
+            "url": {
+              "path": [
+                "payment_links",
+                ":id"
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "disabled": false,
+                  "type": "any",
+                  "value": "{{payment_link_id}}",
+                  "key": "id",
+                  "description": "(Required) The payment link id (`pl_test_…`)."
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "method": "GET"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Retrieve a payment link: HTTP 200', () => pm.response.to.have.status(200));",
+                  "if (pm.response.code >= 400) { const e = pm.response.json().error || {}; console.log(`FirstFlip error ${e.code}: ${e.message}`); }"
+                ]
+              }
+            }
+          ],
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          }
+        },
+        {
+          "id": "7d3aa4f8-6b43-7ae1-d9c1-5fcbaf2d6691",
+          "name": "Deactivate a payment link",
+          "request": {
+            "name": "Deactivate a payment link",
+            "description": "Stops the link creating new charges. Charges already made are unaffected.",
+            "url": {
+              "path": [
+                "payment_links",
+                ":id",
+                "deactivate"
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "disabled": false,
+                  "type": "any",
+                  "value": "{{payment_link_id}}",
+                  "key": "id",
+                  "description": "(Required) The payment link id (`pl_test_…`)."
+                }
+              ]
+            },
+            "header": [
+              {
+                "disabled": false,
+                "description": "(Required) A unique key you generate (e.g. a UUID v4), up to 255 characters. Required on every POST\nthat creates or changes something. Retry a failed request with the same key to replay the\noriginal response instead of acting twice.\n",
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Deactivate a payment link: HTTP 200', () => pm.response.to.have.status(200));",
+                  "if (pm.response.code >= 400) { const e = pm.response.json().error || {}; console.log(`FirstFlip error ${e.code}: ${e.message}`); }"
+                ]
+              }
+            }
+          ],
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          }
+        }
+      ],
+      "event": []
+    },
+    {
+      "id": "570612ef-85c7-2299-9b52-cd884d1d100d",
+      "name": "Sub-accounts",
+      "description": {
+        "content": "The tenant layer: your own end-users, provisioned under your business. Sandbox identities only today — a sub-account holds no wallet and accepts no real money (see `sandbox`).\n",
+        "type": "text/plain"
+      },
+      "item": [
+        {
+          "id": "7ec8cb30-d915-5937-3c9c-7e11c967ab11",
+          "name": "Create a sub-account",
+          "request": {
+            "name": "Create a sub-account",
+            "description": {
+              "content": "Provisions one of **your own end-users** under your business — the tenant layer. The\nsub-account is a sandbox identity: it has no wallet, no balance, and cannot receive real\nmoney (the response always says so in `sandbox`). Live provisioning opens only with the\nlive rails, and this endpoint stays test-mode until then.\n\n`name` is required. `reference` is yours (an id from your system) and must be unique within\nyour business; if you omit it, the sub-account id is used. Requires an `Idempotency-Key`\nheader.\n",
+              "type": "text/plain"
+            },
+            "url": {
+              "path": [
+                "subaccounts"
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "query": [],
+              "variable": []
+            },
+            "header": [
+              {
+                "disabled": false,
+                "description": "(Required) A unique key you generate (e.g. a UUID v4), up to 255 characters. Required on every POST\nthat creates or changes something. Retry a failed request with the same key to replay the\noriginal response instead of acting twice.\n",
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Ada's Store\",\n  \"email\": \"ada@example.com\",\n  \"reference\": \"tenant_1042\",\n  \"metadata\": {\n    \"plan\": \"starter\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Create a sub-account: HTTP 201', () => pm.response.to.have.status(201));",
+                  "if (pm.response.code >= 400) { const e = pm.response.json().error || {}; console.log(`FirstFlip error ${e.code}: ${e.message}`); }",
+                  "const b = pm.response.json(); if (b.id) pm.collectionVariables.set('subaccount_id', b.id);"
+                ]
+              }
+            }
+          ],
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          }
+        },
+        {
+          "id": "e751d74c-c83d-ec58-0623-f738299b173b",
+          "name": "List sub-accounts",
+          "request": {
+            "name": "List sub-accounts",
+            "description": {
+              "content": "Returns your sub-accounts, newest first. Filter by `status`, `reference` or a `created_from` / `created_before` window.",
+              "type": "text/plain"
+            },
+            "url": {
+              "path": [
+                "subaccounts"
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "query": [
+                {
+                  "disabled": true,
+                  "key": "limit",
+                  "value": "20",
+                  "description": "Page size, 1–100 (default 20)."
+                },
+                {
+                  "disabled": true,
+                  "key": "starting_after",
+                  "value": "sa_test_2a3b4c5d6e7f80910a1b2c3d",
+                  "description": "A cursor — the id of the last sub-account on the previous page. Returns the next page (older) items."
+                },
+                {
+                  "disabled": true,
+                  "key": "created_from",
+                  "value": "2026-11-04T00:00:00Z",
+                  "description": "Only objects created at or after this instant. RFC 3339; a bare date means midnight UTC.\nWith `created_before` it forms a half-open window, so `created_from=2026-11-04&created_before=2026-11-05`\nis exactly that UTC day, and consecutive windows never count an object twice.\n"
+                },
+                {
+                  "disabled": true,
+                  "key": "created_before",
+                  "value": "2026-11-05T00:00:00Z",
+                  "description": "Only objects created strictly before this instant. RFC 3339; a bare date means midnight UTC."
+                },
+                {
+                  "disabled": true,
+                  "key": "status",
+                  "value": "active",
+                  "description": "Only sub-accounts in this state."
+                },
+                {
+                  "disabled": true,
+                  "key": "reference",
+                  "value": "acme-lagos",
+                  "description": "Only the sub-account with this exact `reference`."
+                }
+              ],
+              "variable": []
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "method": "GET"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('List sub-accounts: HTTP 200', () => pm.response.to.have.status(200));",
+                  "if (pm.response.code >= 400) { const e = pm.response.json().error || {}; console.log(`FirstFlip error ${e.code}: ${e.message}`); }"
+                ]
+              }
+            }
+          ],
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          }
+        },
+        {
+          "id": "ae49b7c1-b6d4-8281-4916-89ce6bb4aff5",
+          "name": "Retrieve a sub-account",
+          "request": {
+            "name": "Retrieve a sub-account",
+            "description": {
+              "content": "Returns one sub-account for this key, whatever its status (`active` or `suspended`). Use it to\nconfirm a suspend or activate took effect; both moves are idempotent, so a retry returns the\nsame object.\n",
+              "type": "text/plain"
+            },
+            "url": {
+              "path": [
+                "subaccounts",
+                ":id"
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "disabled": false,
+                  "type": "any",
+                  "value": "{{subaccount_id}}",
+                  "key": "id",
+                  "description": "(Required) The sub-account id (`sa_test_…`)."
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "method": "GET"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Retrieve a sub-account: HTTP 200', () => pm.response.to.have.status(200));",
+                  "if (pm.response.code >= 400) { const e = pm.response.json().error || {}; console.log(`FirstFlip error ${e.code}: ${e.message}`); }"
+                ]
+              }
+            }
+          ],
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          }
+        },
+        {
+          "id": "ae8e56c4-7833-82df-a82b-4ec9edd57172",
+          "name": "Suspend a sub-account",
+          "request": {
+            "name": "Suspend a sub-account",
+            "description": {
+              "content": "Your own control over your tenant: marks it `suspended`. Idempotent — suspending an\nalready-suspended sub-account returns it unchanged. Requires an `Idempotency-Key` header.\n",
+              "type": "text/plain"
+            },
+            "url": {
+              "path": [
+                "subaccounts",
+                ":id",
+                "suspend"
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "disabled": false,
+                  "type": "any",
+                  "value": "{{subaccount_id}}",
+                  "key": "id",
+                  "description": "(Required) The sub-account id (`sa_test_…`)."
+                }
+              ]
+            },
+            "header": [
+              {
+                "disabled": false,
+                "description": "(Required) A unique key you generate (e.g. a UUID v4), up to 255 characters. Required on every POST\nthat creates or changes something. Retry a failed request with the same key to replay the\noriginal response instead of acting twice.\n",
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Suspend a sub-account: HTTP 200', () => pm.response.to.have.status(200));",
+                  "if (pm.response.code >= 400) { const e = pm.response.json().error || {}; console.log(`FirstFlip error ${e.code}: ${e.message}`); }"
+                ]
+              }
+            }
+          ],
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          }
+        },
+        {
+          "id": "63ffd08c-c2cc-82a1-5ca9-f1133dcb1f02",
+          "name": "Activate a sub-account",
+          "request": {
+            "name": "Activate a sub-account",
+            "description": {
+              "content": "Reverses a suspension: marks the sub-account `active`. Idempotent — activating an\nalready-active sub-account returns it unchanged. Requires an `Idempotency-Key` header.\n",
+              "type": "text/plain"
+            },
+            "url": {
+              "path": [
+                "subaccounts",
+                ":id",
+                "activate"
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "disabled": false,
+                  "type": "any",
+                  "value": "{{subaccount_id}}",
+                  "key": "id",
+                  "description": "(Required) The sub-account id (`sa_test_…`)."
+                }
+              ]
+            },
+            "header": [
+              {
+                "disabled": false,
+                "description": "(Required) A unique key you generate (e.g. a UUID v4), up to 255 characters. Required on every POST\nthat creates or changes something. Retry a failed request with the same key to replay the\noriginal response instead of acting twice.\n",
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Activate a sub-account: HTTP 200', () => pm.response.to.have.status(200));",
+                  "if (pm.response.code >= 400) { const e = pm.response.json().error || {}; console.log(`FirstFlip error ${e.code}: ${e.message}`); }"
+                ]
+              }
+            }
+          ],
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          }
+        }
+      ],
+      "event": []
+    },
+    {
+      "id": "b37e8e95-9463-4aef-5e2c-85979fbd8ccd",
+      "name": "Cards",
+      "description": {
+        "content": "USD virtual cards a business issues to its own customers, funded and spent through your API. In test mode the whole lifecycle is real in shape and nothing is real in money: no PAN is issued, no issuer is contacted, and no test balance can become spendable. A live key is answered leg by leg rather than with one blanket refusal, because the rails are not all missing at the same rate. Listing, retrieval, freeze and unfreeze run live today — freeze and unfreeze ask the issuer first and only then move our own record, so an issuer that refuses leaves the card active and answers `503 service_unavailable`. Issuing, funding, withdrawal, close, spend limits and the transaction list each answer `403 live_precondition_unmet` and name the rail they are waiting on in `error.param`: `cardholder`, `funding`, `withdrawal`, `settlement`, `limit_format` or `transaction_sync`. A `param` of `provider` is about your card row, not a rail: that live row carries no issuer id, or an issuer this server has no card code for. The authorization simulator stays test-only under every key — a live authorization is decided by the issuer, not by us. No live leg moves money yet.\n",
+        "type": "text/plain"
+      },
+      "item": [
+        {
+          "id": "94fc83db-5436-b2bd-53e7-2c8ad181f3af",
+          "name": "Create a virtual card",
+          "request": {
+            "name": "Create a virtual card",
+            "description": {
+              "content": "Issues one sandbox USD card to one of your customers. The card starts at `balance: 0` with\nno spend limits, and every later call on this surface moves or gates that balance.\n\n`customer.first_name`, `customer.last_name` and `customer.email` are required; the customer\nis validated and then **not stored** — no name or email is persisted on the card, so a\nleaked card id carries no PII with it. `reference` is yours, unique per business (a repeat\nreturns `409 duplicate_reference`), and defaults to the card id. `currency` may only be\n`USD`; sending anything else returns 400.\n\nThe three limits are optional at issue time and are set or cleared later on\n`POST /cards/{id}/spend_limits`. They are per-card ceilings you choose, and no platform maximum\nis applied to any single axis. FirstFlip's ceilings sit elsewhere: one on how many cards a key\nmay hold open, and one on what all your cards may spend together — both stated below and in\nthe authorization section.\n\nFirstFlip's one cap on issuing is a count, not an amount: a key may hold **250 open cards**.\nThe 251st `POST /cards` answers `409 card_limit_reached` with `param: cards` and nothing moves;\nclosing a card frees a slot, so a healthy integration is never locked out. Resending the same\n`Idempotency-Key` is not a new card and is not counted.\n\nThe response shows `number_last4`, `expiry_month` and `expiry_year`. Those are minted here\nfor shape only — this card has no issuer, no full PAN and no CVV, and `sandbox.real_card`\nsays so on every answer. Requires an `Idempotency-Key` header.\n\nLive mode: a live key is refused here before the body is read — issuing a real card needs the\ncardholder rail FirstFlip has not built, so this answers `403 live_precondition_unmet` with\n`param: cardholder`. No card is minted, and the refusal is what your key replays.\n",
+              "type": "text/plain"
+            },
+            "url": {
+              "path": [
+                "cards"
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "query": [],
+              "variable": []
+            },
+            "header": [
+              {
+                "disabled": false,
+                "description": "(Required) A unique key you generate (e.g. a UUID v4), up to 255 characters. Required on every POST\nthat creates or changes something. Retry a failed request with the same key to replay the\noriginal response instead of acting twice.\n",
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reference\": \"cust-1042\",\n  \"customer\": {\n    \"first_name\": \"Amara\",\n    \"last_name\": \"Okafor\",\n    \"email\": \"amara@example.com\"\n  },\n  \"daily_limit\": 500,\n  \"per_transaction_limit\": 200\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Create a virtual card: HTTP 201', () => pm.response.to.have.status(201));",
+                  "if (pm.response.code >= 400) { const e = pm.response.json().error || {}; console.log(`FirstFlip error ${e.code}: ${e.message}`); }"
+                ]
+              }
+            }
+          ],
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          }
+        },
+        {
+          "id": "e2462d7e-9fd9-db82-d47a-48039353aeea",
+          "name": "List virtual cards",
+          "request": {
+            "name": "List virtual cards",
+            "description": {
+              "content": "Returns your cards, newest first. Filter by `status` (`active`, `frozen` or `closed`) or a\n`created_from`/`created_before` window. Closed cards are listed too — that is how you find a\ncustomer's old card id.\n\nLive mode: this read runs live. A live key gets its own live cards and nothing else — a live page\nnever contains a test card, and each row answers `livemode: true` with `sandbox: null`.\n",
+              "type": "text/plain"
+            },
+            "url": {
+              "path": [
+                "cards"
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "query": [
+                {
+                  "disabled": true,
+                  "key": "limit",
+                  "value": "20",
+                  "description": "Page size, 1–100 (default 20)."
+                },
+                {
+                  "disabled": true,
+                  "key": "starting_after",
+                  "value": "ch_test_2a3b4c5d6e7f80910a1b2c3d",
+                  "description": "A cursor — the id of the last object on the previous page. Returns the next page (older) items."
+                },
+                {
+                  "disabled": true,
+                  "key": "created_from",
+                  "value": "2026-11-04T00:00:00Z",
+                  "description": "Only objects created at or after this instant. RFC 3339; a bare date means midnight UTC.\nWith `created_before` it forms a half-open window, so `created_from=2026-11-04&created_before=2026-11-05`\nis exactly that UTC day, and consecutive windows never count an object twice.\n"
+                },
+                {
+                  "disabled": true,
+                  "key": "created_before",
+                  "value": "2026-11-05T00:00:00Z",
+                  "description": "Only objects created strictly before this instant. RFC 3339; a bare date means midnight UTC."
+                },
+                {
+                  "disabled": true,
+                  "key": "status",
+                  "value": "active",
+                  "description": "Only cards in this state."
+                }
+              ],
+              "variable": []
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "method": "GET"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('List virtual cards: HTTP 200', () => pm.response.to.have.status(200));",
+                  "if (pm.response.code >= 400) { const e = pm.response.json().error || {}; console.log(`FirstFlip error ${e.code}: ${e.message}`); }"
+                ]
+              }
+            }
+          ],
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          }
+        },
+        {
+          "id": "5f4cb979-1fce-2c29-ace8-f9d17904eca0",
+          "name": "Retrieve a virtual card",
+          "request": {
+            "name": "Retrieve a virtual card",
+            "description": {
+              "content": "Returns one card, including its current `balance`, `status` and `limits`. This is the read\nyour own UI should render from — never from a value cached after a write, because a spend can\nhave landed since.\n\nLive mode: this read runs live. A live card answers `livemode: true` with `sandbox: null`; a card\nbelonging to the other mode is a `404`, byte-for-byte the answer for a card that does not exist.\n",
+              "type": "text/plain"
+            },
+            "url": {
+              "path": [
+                "cards",
+                ":id"
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "disabled": false,
+                  "type": "any",
+                  "value": "{{card_id}}",
+                  "key": "id",
+                  "description": "(Required) The card id (`card_test_…`) returned when the card was issued."
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "method": "GET"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Retrieve a virtual card: HTTP 200', () => pm.response.to.have.status(200));",
+                  "if (pm.response.code >= 400) { const e = pm.response.json().error || {}; console.log(`FirstFlip error ${e.code}: ${e.message}`); }"
+                ]
+              }
+            }
+          ],
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          }
+        },
+        {
+          "id": "f03b62f1-4604-2b70-0b98-337f242d940b",
+          "name": "Fund a virtual card",
+          "request": {
+            "name": "Fund a virtual card",
+            "description": {
+              "content": "Puts money on the card from your business's sandbox funding, and returns the ledger row that\ndescribes the credit (`type: topup`, `status: completed`, with `balance_before` and\n`balance_after`). The row and the balance move in one commit, so a funding row can never\ndescribe money the card did not receive.\n\nFunding a **frozen** card is allowed — money arriving is never blocked by a freeze, only money\nleaving. Funding a **closed** card returns `409 card_closed`. Requires an `Idempotency-Key`\nheader: retry the same key to replay this credit instead of funding twice.\n\nLive mode: refused — funding needs a tenant USD balance to move money from, and that rail is not\nbuilt. This answers `403 live_precondition_unmet` with `param: funding` before your amount is read.\n",
+              "type": "text/plain"
+            },
+            "url": {
+              "path": [
+                "cards",
+                ":id",
+                "fund"
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "disabled": false,
+                  "type": "any",
+                  "value": "{{card_id}}",
+                  "key": "id",
+                  "description": "(Required) The card id (`card_test_…`) returned when the card was issued."
+                }
+              ]
+            },
+            "header": [
+              {
+                "disabled": false,
+                "description": "(Required) A unique key you generate (e.g. a UUID v4), up to 255 characters. Required on every POST\nthat creates or changes something. Retry a failed request with the same key to replay the\noriginal response instead of acting twice.\n",
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 100\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Fund a virtual card: HTTP 201', () => pm.response.to.have.status(201));",
+                  "if (pm.response.code >= 400) { const e = pm.response.json().error || {}; console.log(`FirstFlip error ${e.code}: ${e.message}`); }"
+                ]
+              }
+            }
+          ],
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          }
+        },
+        {
+          "id": "a41029ab-c343-a844-1767-55a9bbc19cf1",
+          "name": "Withdraw from a virtual card",
+          "request": {
+            "name": "Withdraw from a virtual card",
+            "description": {
+              "content": "Takes money back off the card (`type: withdrawal`, `status: completed`). The same commit rule\nas funding applies: row and balance move together.\n\nA withdrawal is refused with `409 card_not_active` unless the card is `active` — a freeze stops\nmoney leaving, and a close stops everything (`409 card_closed`). An amount larger than the\nbalance returns `400 insufficient_balance` with `param: amount`, and nothing moves. Requires\nan `Idempotency-Key` header.\n\nLive mode: refused — taking real money off a card needs the withdrawal rail, and FirstFlip has not\nproved that provider verb yet. This answers `403 live_precondition_unmet` with `param: withdrawal`\nbefore your amount is read.\n",
+              "type": "text/plain"
+            },
+            "url": {
+              "path": [
+                "cards",
+                ":id",
+                "withdraw"
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "disabled": false,
+                  "type": "any",
+                  "value": "{{card_id}}",
+                  "key": "id",
+                  "description": "(Required) The card id (`card_test_…`) returned when the card was issued."
+                }
+              ]
+            },
+            "header": [
+              {
+                "disabled": false,
+                "description": "(Required) A unique key you generate (e.g. a UUID v4), up to 255 characters. Required on every POST\nthat creates or changes something. Retry a failed request with the same key to replay the\noriginal response instead of acting twice.\n",
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 40\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Withdraw from a virtual card: HTTP 201', () => pm.response.to.have.status(201));",
+                  "if (pm.response.code >= 400) { const e = pm.response.json().error || {}; console.log(`FirstFlip error ${e.code}: ${e.message}`); }"
+                ]
+              }
+            }
+          ],
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          }
+        },
+        {
+          "id": "2ea10a32-2e58-1429-cdeb-db5da9cc348c",
+          "name": "Freeze a virtual card",
+          "request": {
+            "name": "Freeze a virtual card",
+            "description": {
+              "content": "Stops the card from spending or being withdrawn from, and keeps every other property — the\nbalance, the limits, the id — exactly as they are. `reason` (max 200 chars) is stored and\nreturned as `frozen_reason`.\n\nFreezing is idempotent by outcome: freezing an already-frozen card answers `200` with that\nstate rather than an error, so two racing requests cannot disagree. A closed card answers\n`409 card_closed`. Requires an `Idempotency-Key` header.\n\nLive mode: this leg runs live, and it is the leg that matters on the day a card is reported lost.\n",
+              "type": "text/plain"
+            },
+            "url": {
+              "path": [
+                "cards",
+                ":id",
+                "freeze"
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "disabled": false,
+                  "type": "any",
+                  "value": "{{card_id}}",
+                  "key": "id",
+                  "description": "(Required) The card id (`card_test_…`) returned when the card was issued."
+                }
+              ]
+            },
+            "header": [
+              {
+                "disabled": false,
+                "description": "(Required) A unique key you generate (e.g. a UUID v4), up to 255 characters. Required on every POST\nthat creates or changes something. Retry a failed request with the same key to replay the\noriginal response instead of acting twice.\n",
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Reported lost\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Freeze a virtual card: HTTP 200', () => pm.response.to.have.status(200));",
+                  "if (pm.response.code >= 400) { const e = pm.response.json().error || {}; console.log(`FirstFlip error ${e.code}: ${e.message}`); }"
+                ]
+              }
+            }
+          ],
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          }
+        },
+        {
+          "id": "9ffc8d84-9d8a-2c00-8b50-b0412c7eae9f",
+          "name": "Unfreeze a virtual card",
+          "request": {
+            "name": "Unfreeze a virtual card",
+            "description": {
+              "content": "Returns a frozen card to `active` and clears `frozen_reason`. A frozen card keeps its balance,\nso unfreezing restores spending without funding it again.\n\nA closed card cannot be reopened — `409 card_closed` says to issue a new one. Unfreezing a card\nthat is already active answers `200` with its current state. Requires an `Idempotency-Key`\nheader. No request body is read.\n\nLive mode: this leg runs live with the same ordering as freeze — the issuer releases the card first,\nand our record follows only if it agrees. A refusing issuer answers `503 service_unavailable` and the\ncard stays `frozen`.\n",
+              "type": "text/plain"
+            },
+            "url": {
+              "path": [
+                "cards",
+                ":id",
+                "unfreeze"
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "disabled": false,
+                  "type": "any",
+                  "value": "{{card_id}}",
+                  "key": "id",
+                  "description": "(Required) The card id (`card_test_…`) returned when the card was issued."
+                }
+              ]
+            },
+            "header": [
+              {
+                "disabled": false,
+                "description": "(Required) A unique key you generate (e.g. a UUID v4), up to 255 characters. Required on every POST\nthat creates or changes something. Retry a failed request with the same key to replay the\noriginal response instead of acting twice.\n",
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Unfreeze a virtual card: HTTP 200', () => pm.response.to.have.status(200));",
+                  "if (pm.response.code >= 400) { const e = pm.response.json().error || {}; console.log(`FirstFlip error ${e.code}: ${e.message}`); }"
+                ]
+              }
+            }
+          ],
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          }
+        },
+        {
+          "id": "40c1952c-b491-a277-7f9d-18599cccb448",
+          "name": "Close a virtual card",
+          "request": {
+            "name": "Close a virtual card",
+            "description": {
+              "content": "Ends the card for good, from either `active` or `frozen`. `reason` (max 200 chars) is stored\nand returned as `closed_reason`.\n\nClose is terminal: every later write against the card answers `409 card_closed`, and the card\ncannot be reopened — issue a new one. Closing an already-closed card answers `200`. Any\nbalance still on the card is left as recorded against it and is not paid out by this call;\nwithdraw it first if the money must come back. Requires an `Idempotency-Key` header.\n\nLive mode: refused — closing a real card has to settle whatever is outstanding against it, and the\nsettlement rail is not built. This answers `403 live_precondition_unmet` with `param: settlement`\nand changes nothing, on either side.\n",
+              "type": "text/plain"
+            },
+            "url": {
+              "path": [
+                "cards",
+                ":id",
+                "close"
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "disabled": false,
+                  "type": "any",
+                  "value": "{{card_id}}",
+                  "key": "id",
+                  "description": "(Required) The card id (`card_test_…`) returned when the card was issued."
+                }
+              ]
+            },
+            "header": [
+              {
+                "disabled": false,
+                "description": "(Required) A unique key you generate (e.g. a UUID v4), up to 255 characters. Required on every POST\nthat creates or changes something. Retry a failed request with the same key to replay the\noriginal response instead of acting twice.\n",
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Customer left the platform\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Close a virtual card: HTTP 200', () => pm.response.to.have.status(200));",
+                  "if (pm.response.code >= 400) { const e = pm.response.json().error || {}; console.log(`FirstFlip error ${e.code}: ${e.message}`); }"
+                ]
+              }
+            }
+          ],
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          }
+        },
+        {
+          "id": "a1aa364f-2a71-532c-8965-f928edc5764a",
+          "name": "Update a card's spend limits",
+          "request": {
+            "name": "Update a card's spend limits",
+            "description": {
+              "content": "Sets the merchant-side ceilings an authorization is judged against. Send at least one of\n`daily_limit`, `per_transaction_limit` or `monthly_limit`; the axes you leave out are left\nalone, and an explicit `null` clears that axis (no ceiling).\n\n`daily_limit` and `monthly_limit` are rolling windows — 24 hours and 30 days from now, not a\ncalendar day or month — and they are summed from the **committed** approvals at the moment the\nspend lands, not from a read taken earlier. That is what makes the ceiling hold when thirty\nauthorizations arrive at once. `per_transaction_limit` is a single-authorization maximum and is\nchecked before either window. Requires an `Idempotency-Key` header.\n\nLive mode: refused — the issuer has rejected every amount format this platform has tried on that\ncall, and a ceiling sent in the wrong unit is worse than none. Writing it only on our side would be\na limit a live card does not actually obey, so this answers `403 live_precondition_unmet` with\n`param: limit_format`.\n",
+              "type": "text/plain"
+            },
+            "url": {
+              "path": [
+                "cards",
+                ":id",
+                "spend_limits"
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "disabled": false,
+                  "type": "any",
+                  "value": "{{card_id}}",
+                  "key": "id",
+                  "description": "(Required) The card id (`card_test_…`) returned when the card was issued."
+                }
+              ]
+            },
+            "header": [
+              {
+                "disabled": false,
+                "description": "(Required) A unique key you generate (e.g. a UUID v4), up to 255 characters. Required on every POST\nthat creates or changes something. Retry a failed request with the same key to replay the\noriginal response instead of acting twice.\n",
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"daily_limit\": 100,\n  \"monthly_limit\": null\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Update a card's spend limits: HTTP 200', () => pm.response.to.have.status(200));",
+                  "if (pm.response.code >= 400) { const e = pm.response.json().error || {}; console.log(`FirstFlip error ${e.code}: ${e.message}`); }"
+                ]
+              }
+            }
+          ],
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          }
+        },
+        {
+          "id": "6635843c-a6ab-1928-df80-c55c5fe19d18",
+          "name": "Simulate a card authorization",
+          "request": {
+            "name": "Simulate a card authorization",
+            "description": {
+              "content": "The stand-in for a live purchase, and the only way to see an approval or a decline on this\nsurface. An **approved** authorization is the debit: the ledger row (`type: authorization`,\n`status: approved`) and the balance drop commit together. A **declined** one writes the row\nwith `status: declined` and a `decline_code`, and moves no money.\n\nThe decline reason is decided in this order: `card_frozen`, `over_per_transaction_limit`,\n`over_daily_limit`, `over_monthly_limit`, `over_tenant_monthly_limit`, `insufficient_funds`.\nCode your retry logic against those six — a frozen card and an over-limit card are different\ncustomer conversations, and `insufficient_funds` is the one a top-up fixes.\n`over_tenant_monthly_limit` is the only one of the six that is not yours to set: it is a\nceiling FirstFlip places on what all of your cards may spend in a rolling 30 days\n(**$1,000,000** of approved authorization spend per business).\n\nEvery answer is `201`: a decline is a recorded outcome of a real request, not a failed one.\nA closed card is the exception and answers `409 card_closed`. Requires an `Idempotency-Key`\nheader — the same key cannot approve and decline two different attempts.\n\nLive mode: refused with `403 live_mode_unavailable`, and this is the one leg that will stay that way.\n",
+              "type": "text/plain"
+            },
+            "url": {
+              "path": [
+                "cards",
+                ":id",
+                "simulate_authorization"
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "disabled": false,
+                  "type": "any",
+                  "value": "{{card_id}}",
+                  "key": "id",
+                  "description": "(Required) The card id (`card_test_…`) returned when the card was issued."
+                }
+              ]
+            },
+            "header": [
+              {
+                "disabled": false,
+                "description": "(Required) A unique key you generate (e.g. a UUID v4), up to 255 characters. Required on every POST\nthat creates or changes something. Retry a failed request with the same key to replay the\noriginal response instead of acting twice.\n",
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 25,\n  \"merchant\": \"Netflix\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Simulate a card authorization: HTTP 201', () => pm.response.to.have.status(201));",
+                  "if (pm.response.code >= 400) { const e = pm.response.json().error || {}; console.log(`FirstFlip error ${e.code}: ${e.message}`); }"
+                ]
+              }
+            }
+          ],
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          }
+        },
+        {
+          "id": "722f1635-3c16-2b79-0e79-dab199de0a26",
+          "name": "List a card's transactions",
+          "request": {
+            "name": "List a card's transactions",
+            "description": {
+              "content": "The card's own ledger, newest first: every credit, withdrawal and authorization attempt,\napproved or declined. This is the reconciliation source — the rows sum to the card's\n`balance`, and a declined row carries the `decline_code` that explains it.\n\nFilter by `type` (`topup`, `withdrawal`, `authorization`) and/or `status` (`completed`,\n`approved`, `declined`), by a `created_from`/`created_before` window, and page with `limit`\nplus `starting_after`.\n\nLive mode: refused — the rows behind a live card are the issuer's, and they are not synced into this\nplatform yet. An empty list would read as \"this card has spent nothing\", which is a guess, so this\nanswers `403 live_precondition_unmet` with `param: transaction_sync`.\n",
+              "type": "text/plain"
+            },
+            "url": {
+              "path": [
+                "cards",
+                ":id",
+                "transactions"
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "query": [
+                {
+                  "disabled": true,
+                  "key": "limit",
+                  "value": "20",
+                  "description": "Page size, 1–100 (default 20)."
+                },
+                {
+                  "disabled": true,
+                  "key": "starting_after",
+                  "value": "ch_test_2a3b4c5d6e7f80910a1b2c3d",
+                  "description": "A cursor — the id of the last object on the previous page. Returns the next page (older) items."
+                },
+                {
+                  "disabled": true,
+                  "key": "created_from",
+                  "value": "2026-11-04T00:00:00Z",
+                  "description": "Only objects created at or after this instant. RFC 3339; a bare date means midnight UTC.\nWith `created_before` it forms a half-open window, so `created_from=2026-11-04&created_before=2026-11-05`\nis exactly that UTC day, and consecutive windows never count an object twice.\n"
+                },
+                {
+                  "disabled": true,
+                  "key": "created_before",
+                  "value": "2026-11-05T00:00:00Z",
+                  "description": "Only objects created strictly before this instant. RFC 3339; a bare date means midnight UTC."
+                },
+                {
+                  "disabled": true,
+                  "key": "type",
+                  "value": "authorization",
+                  "description": "Only rows of this kind."
+                },
+                {
+                  "disabled": true,
+                  "key": "status",
+                  "value": "declined",
+                  "description": "Only rows in this final state."
+                }
+              ],
+              "variable": [
+                {
+                  "disabled": false,
+                  "type": "any",
+                  "value": "{{card_id}}",
+                  "key": "id",
+                  "description": "(Required) The card id (`card_test_…`) returned when the card was issued."
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "method": "GET"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('List a card's transactions: HTTP 200', () => pm.response.to.have.status(200));",
+                  "if (pm.response.code >= 400) { const e = pm.response.json().error || {}; console.log(`FirstFlip error ${e.code}: ${e.message}`); }"
+                ]
+              }
+            }
+          ],
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          }
+        }
+      ],
+      "event": []
+    },
+    {
+      "id": "a6bbdbb5-0c80-695d-f297-8153ba81268f",
+      "name": "Assistant",
+      "description": {
+        "content": "A documentation Q&A helper that answers only from the published FirstFlip docs.",
+        "type": "text/plain"
+      },
+      "item": [
+        {
+          "id": "bb2aeac0-4df8-7433-ce4a-867a735f3b57",
+          "name": "Ask the developer assistant",
+          "request": {
+            "name": "Ask the developer assistant",
+            "description": {
+              "content": "Answers a developer question strictly from the published FirstFlip documentation (it never\ninvents facts; unsupported claims are scrubbed, and `removed_claims` counts how many). This\nis **not** a money call and takes **no** `Idempotency-Key`. Rate limited to 30 questions per\nkey per hour. The assistant is gated by a separate switch and is OFF by default; when off it\nreturns `503 assistant_disabled`.\n",
+              "type": "text/plain"
+            },
+            "url": {
+              "path": [
+                "assistant"
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "query": [],
+              "variable": []
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"question\": \"How do I verify a webhook signature?\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Ask the developer assistant: HTTP 200', () => pm.response.to.have.status(200));",
+                  "if (pm.response.code >= 400) { const e = pm.response.json().error || {}; console.log(`FirstFlip error ${e.code}: ${e.message}`); }"
+                ]
+              }
+            }
+          ],
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          }
+        }
+      ],
+      "event": []
+    },
+    {
+      "id": "191bd209-ab8f-2625-247b-6f93ffcc14d7",
+      "name": "Hosted pages",
+      "description": {
+        "content": "Public, browser-facing pages (the token in the URL is the capability — no secret key). These return HTML, not JSON. In test mode the pay page carries a \"Simulate payment\" button.\n",
+        "type": "text/plain"
+      },
+      "item": [
+        {
+          "id": "cbb3c284-2b15-59da-2b29-c3cb5b9512e9",
+          "name": "Hosted pay page for a charge (test mode)",
+          "request": {
+            "name": "Hosted pay page for a charge (test mode)",
+            "description": {
+              "content": "The browser-facing page a customer opens (this is a charge's `hosted_url`). Shows the quote\nand, while the charge is pending, a \"Simulate payment\" button. The `token` is the\ncapability; no secret key is used. Returns HTML.\n",
+              "type": "text/plain"
+            },
+            "url": {
+              "path": [
+                "sandbox",
+                "pay",
+                ":token"
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "disabled": false,
+                  "type": "any",
+                  "value": "a1b2c3d4e5f60718293a4b5c6d7e8f90",
+                  "key": "token",
+                  "description": "(Required) The 32-character hex capability token embedded in a hosted URL."
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "text/html"
+              }
+            ],
+            "method": "GET"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Hosted pay page for a charge (test mode): HTTP 200', () => pm.response.to.have.status(200));",
+                  "if (pm.response.code >= 400) { const e = pm.response.json().error || {}; console.log(`FirstFlip error ${e.code}: ${e.message}`); }"
+                ]
+              }
+            }
+          ],
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          }
+        },
+        {
+          "id": "4efce8c8-bc84-da2f-cfbe-743badba4370",
+          "name": "Simulate payment from the hosted page (test mode)",
+          "request": {
+            "name": "Simulate payment from the hosted page (test mode)",
+            "description": {
+              "content": "Posted by the hosted page's form. Marks the charge `paid` and fires `charge.paid`, exactly\nlike a real payment. Returns HTML (a confirmation). No secret key is used.\n",
+              "type": "text/plain"
+            },
+            "url": {
+              "path": [
+                "sandbox",
+                "pay",
+                ":token"
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "disabled": false,
+                  "type": "any",
+                  "value": "a1b2c3d4e5f60718293a4b5c6d7e8f90",
+                  "key": "token",
+                  "description": "(Required) The 32-character hex capability token embedded in a hosted URL."
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded"
+              },
+              {
+                "key": "Accept",
+                "value": "text/html"
+              }
+            ],
+            "method": "POST",
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Simulate payment from the hosted page (test mode): HTTP 200', () => pm.response.to.have.status(200));",
+                  "if (pm.response.code >= 400) { const e = pm.response.json().error || {}; console.log(`FirstFlip error ${e.code}: ${e.message}`); }"
+                ]
+              }
+            }
+          ],
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          }
+        },
+        {
+          "id": "399e7837-6c86-df2e-afe7-d4583f5cd2c8",
+          "name": "Hosted landing page for a payment link (test mode)",
+          "request": {
+            "name": "Hosted landing page for a payment link (test mode)",
+            "description": {
+              "content": "The browser-facing landing page for a payment link (this is a link's `url`). Shows the price\nand a \"Continue to payment\" button. A GET creates nothing (so link-preview crawlers cannot\nmint charges). The `token` is the capability; no secret key is used. Returns HTML.\n",
+              "type": "text/plain"
+            },
+            "url": {
+              "path": [
+                "sandbox",
+                "l",
+                ":token"
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "disabled": false,
+                  "type": "any",
+                  "value": "a1b2c3d4e5f60718293a4b5c6d7e8f90",
+                  "key": "token",
+                  "description": "(Required) The 32-character hex capability token embedded in a hosted URL."
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "text/html"
+              }
+            ],
+            "method": "GET"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Hosted landing page for a payment link (test mode): HTTP 200', () => pm.response.to.have.status(200));",
+                  "if (pm.response.code >= 400) { const e = pm.response.json().error || {}; console.log(`FirstFlip error ${e.code}: ${e.message}`); }"
+                ]
+              }
+            }
+          ],
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          }
+        },
+        {
+          "id": "42a9fed1-bc09-0a3f-96ed-97156bebb910",
+          "name": "Open a payment link — create a charge and redirect (test mode)",
+          "request": {
+            "name": "Open a payment link — create a charge and redirect (test mode)",
+            "description": {
+              "content": "Posted by the landing page's form. Atomically reserves a use (honoring `max_uses`), creates\na fresh charge for this visitor, and 303-redirects to that charge's hosted pay page. No\nsecret key is used.\n",
+              "type": "text/plain"
+            },
+            "url": {
+              "path": [
+                "sandbox",
+                "l",
+                ":token"
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "disabled": false,
+                  "type": "any",
+                  "value": "a1b2c3d4e5f60718293a4b5c6d7e8f90",
+                  "key": "token",
+                  "description": "(Required) The 32-character hex capability token embedded in a hosted URL."
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded"
+              },
+              {
+                "key": "Accept",
+                "value": "text/html"
+              }
+            ],
+            "method": "POST",
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Open a payment link — create a charge and redirect (test mode): HTTP 200', () => pm.response.to.have.status(200));",
+                  "if (pm.response.code >= 400) { const e = pm.response.json().error || {}; console.log(`FirstFlip error ${e.code}: ${e.message}`); }"
+                ]
+              }
+            }
+          ],
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          }
+        }
+      ],
+      "event": []
+    },
+    {
+      "name": "Services sandbox",
+      "description": "Copied from apps/server/docs/api/FirstFlip.postman_collection.json; the server-side check-service-contract keeps that folder in lockstep with api/services.openapi.json.",
+      "item": [
+        {
+          "name": "Retrieve FirstFlip OTP channel prices",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/otps/pricing",
+            "description": "Local test mode only; not deployed by this branch. Retail is exactly twice the server-configured channel cost. No debit is made."
+          },
+          "x-operation-id": "getOtpPricing",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Retrieve FirstFlip OTP channel prices: HTTP 200', () => pm.response.to.have.status(200));",
+                  "if (pm.response.code >= 400) { const e = pm.response.json().error || {}; console.log(`FirstFlip error ${e.code}: ${e.message}`); }"
+                ]
+              }
+            }
+          ],
+          "id": "d742af74-0c7d-bd53-fc05-630bb7caea4f"
+        },
+        {
+          "name": "Create a test OTP",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/otps",
+            "description": "Local test mode only; not deployed by this branch. Default six digits; 5–7 accepted. Five attempts; 1–10 minute expiry. sandbox.code exists only on creation.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customer\": {\n    \"name\": \"Test Customer\",\n    \"first_name\": \"Test\",\n    \"last_name\": \"Customer\",\n    \"email\": \"test@example.com\",\n    \"phone\": \"2348000000000\"\n  },\n  \"medium\": [\n    \"sms\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "x-operation-id": "createOtp",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Create a test OTP: HTTP 201', () => pm.response.to.have.status(201));",
+                  "if (pm.response.code >= 400) { const e = pm.response.json().error || {}; console.log(`FirstFlip error ${e.code}: ${e.message}`); }",
+                  "if (pm.response.code < 300) pm.collectionVariables.set('otp_id', pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "id": "7acf0d05-f7bc-031b-d829-d31998527e06"
+        },
+        {
+          "name": "Retrieve a test OTP",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/otps/{{otp_id}}",
+            "description": "Local test mode only; not deployed by this branch. "
+          },
+          "x-operation-id": "getOtp",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Retrieve a test OTP: HTTP 200', () => pm.response.to.have.status(200));",
+                  "if (pm.response.code >= 400) { const e = pm.response.json().error || {}; console.log(`FirstFlip error ${e.code}: ${e.message}`); }"
+                ]
+              }
+            }
+          ],
+          "id": "e3ecec6e-e35d-cf73-d96e-846b17ec5b90"
+        },
+        {
+          "name": "Validate a test OTP once",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/otps/{{otp_id}}/validate",
+            "description": "Local test mode only; not deployed by this branch. ",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"otp\": \"123456\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "x-operation-id": "validateOtp",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Validate a test OTP once: HTTP 200', () => pm.response.to.have.status(200));",
+                  "if (pm.response.code >= 400) { const e = pm.response.json().error || {}; console.log(`FirstFlip error ${e.code}: ${e.message}`); }"
+                ]
+              }
+            }
+          ],
+          "id": "fe1e55fa-722b-1322-ae52-37a1196958c8"
+        },
+        {
+          "name": "Create a synthetic FX quote",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/fx/quotes",
+            "description": "Local test mode only; not deployed by this branch. NGN/USD, GHS/USD and USD/NGN only. Synthetic rates; minimum USD 1000 equivalent. Expiry five minutes.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"base_currency\": \"NGN\",\n  \"target_currency\": \"USD\",\n  \"quantity\": 1600000,\n  \"scenario\": \"processing\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "x-operation-id": "createFxQuote",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Create a synthetic FX quote: HTTP 201', () => pm.response.to.have.status(201));",
+                  "if (pm.response.code >= 400) { const e = pm.response.json().error || {}; console.log(`FirstFlip error ${e.code}: ${e.message}`); }",
+                  "if (pm.response.code < 300) pm.collectionVariables.set('fx_quote_id', pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "id": "d2969f84-4408-fe90-c6ad-632bb0a0d11a"
+        },
+        {
+          "name": "Retrieve a test FX quote",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/fx/quotes/{{fx_quote_id}}",
+            "description": "Local test mode only; not deployed by this branch. "
+          },
+          "x-operation-id": "getFxQuote",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Retrieve a test FX quote: HTTP 200', () => pm.response.to.have.status(200));",
+                  "if (pm.response.code >= 400) { const e = pm.response.json().error || {}; console.log(`FirstFlip error ${e.code}: ${e.message}`); }"
+                ]
+              }
+            }
+          ],
+          "id": "387b8e82-c3f8-41a8-15a4-61dd8105e401"
+        },
+        {
+          "name": "Complete a processing test quote",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/fx/quotes/{{fx_quote_id}}/simulate",
+            "description": "Local test mode only; not deployed by this branch. ",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"ready\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "x-operation-id": "simulateFxQuote",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Complete a processing test quote: HTTP 200', () => pm.response.to.have.status(200));",
+                  "if (pm.response.code >= 400) { const e = pm.response.json().error || {}; console.log(`FirstFlip error ${e.code}: ${e.message}`); }"
+                ]
+              }
+            }
+          ],
+          "id": "5aa96c94-b6ef-f5a0-13e3-ca8a1509799f"
+        },
+        {
+          "name": "Consume a ready quote for one trade",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/fx/trades",
+            "description": "Local test mode only; not deployed by this branch. ",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quote_id\": \"{{fx_quote_id}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "x-operation-id": "createFxTrade",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Consume a ready quote for one trade: HTTP 201', () => pm.response.to.have.status(201));",
+                  "if (pm.response.code >= 400) { const e = pm.response.json().error || {}; console.log(`FirstFlip error ${e.code}: ${e.message}`); }",
+                  "if (pm.response.code < 300) pm.collectionVariables.set('fx_trade_id', pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "id": "8881ddc8-1aad-716b-9e00-312a79e06468"
+        },
+        {
+          "name": "Retrieve a test FX trade",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/fx/trades/{{fx_trade_id}}",
+            "description": "Local test mode only; not deployed by this branch. "
+          },
+          "x-operation-id": "getFxTrade",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Retrieve a test FX trade: HTTP 200', () => pm.response.to.have.status(200));",
+                  "if (pm.response.code >= 400) { const e = pm.response.json().error || {}; console.log(`FirstFlip error ${e.code}: ${e.message}`); }"
+                ]
+              }
+            }
+          ],
+          "id": "11530e41-9865-aa3a-d496-0c7b1a975501"
+        },
+        {
+          "name": "Simulate a trade result",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/fx/trades/{{fx_trade_id}}/simulate",
+            "description": "Local test mode only; not deployed by this branch. ",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"settled\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "x-operation-id": "simulateFxTrade",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Simulate a trade result: HTTP 200', () => pm.response.to.have.status(200));",
+                  "if (pm.response.code >= 400) { const e = pm.response.json().error || {}; console.log(`FirstFlip error ${e.code}: ${e.message}`); }"
+                ]
+              }
+            }
+          ],
+          "id": "e32be9fd-ccb7-319c-1f87-8115f6cc9d4b"
+        },
+        {
+          "name": "Create an NGN or GHS test account",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/virtual_accounts",
+            "description": "Local test mode only; not deployed by this branch. Static NGN BVN inputs require matching consented test BVN verification. NIN is format-only in local simulation.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currency\": \"GHS\",\n  \"type\": \"static\",\n  \"amount\": 100,\n  \"customer\": {\n    \"name\": \"Test Customer\",\n    \"first_name\": \"Test\",\n    \"last_name\": \"Customer\",\n    \"email\": \"test@example.com\",\n    \"phone\": \"2348000000000\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "x-operation-id": "createVirtualAccount",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Create an NGN or GHS test account: HTTP 201', () => pm.response.to.have.status(201));",
+                  "if (pm.response.code >= 400) { const e = pm.response.json().error || {}; console.log(`FirstFlip error ${e.code}: ${e.message}`); }",
+                  "if (pm.response.code < 300) pm.collectionVariables.set('virtual_account_id', pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "id": "cb2b3618-df3b-2846-5fd6-16e6455ba63e"
+        },
+        {
+          "name": "Retrieve a test virtual account",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/virtual_accounts/{{virtual_account_id}}",
+            "description": "Local test mode only; not deployed by this branch. "
+          },
+          "x-operation-id": "getVirtualAccount",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Retrieve a test virtual account: HTTP 200', () => pm.response.to.have.status(200));",
+                  "if (pm.response.code >= 400) { const e = pm.response.json().error || {}; console.log(`FirstFlip error ${e.code}: ${e.message}`); }"
+                ]
+              }
+            }
+          ],
+          "id": "80ff7a6f-20e5-3595-63cc-1e3144d3f8bc"
+        },
+        {
+          "name": "Simulate a transfer into a test account",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/virtual_accounts/{{virtual_account_id}}/simulate_payment",
+            "description": "Local test mode only; not deployed by this branch. NGN underpayments reverse; excess is reversed. GHS requires exact expected amount. No wallet is credited.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 100,\n  \"reference\": \"{{$guid}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "x-operation-id": "simulateVirtualAccountPayment",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Simulate a transfer into a test account: HTTP 201', () => pm.response.to.have.status(201));",
+                  "if (pm.response.code >= 400) { const e = pm.response.json().error || {}; console.log(`FirstFlip error ${e.code}: ${e.message}`); }"
+                ]
+              }
+            }
+          ],
+          "id": "c2914411-354f-5ca7-d1b4-63aa7de04752"
+        },
+        {
+          "name": "Deactivate a test account",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/virtual_accounts/{{virtual_account_id}}/deactivate",
+            "description": "Local test mode only; not deployed by this branch. ",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "x-operation-id": "deactivateVirtualAccount",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Deactivate a test account: HTTP 200', () => pm.response.to.have.status(200));",
+                  "if (pm.response.code >= 400) { const e = pm.response.json().error || {}; console.log(`FirstFlip error ${e.code}: ${e.message}`); }"
+                ]
+              }
+            }
+          ],
+          "id": "da02cd09-957c-4a7b-fcfa-1bdc71dc09a0"
+        },
+        {
+          "name": "Create 1–50 static test accounts",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/virtual_accounts/bulk",
+            "description": "Local test mode only; not deployed by this branch. One currency; per-item references omitted. completed means provisioning finished.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currency\": \"GHS\",\n  \"accounts\": [\n    {\n      \"currency\": \"GHS\",\n      \"type\": \"static\",\n      \"amount\": 100,\n      \"customer\": {\n        \"name\": \"Test Customer\",\n        \"first_name\": \"Test\",\n        \"last_name\": \"Customer\",\n        \"email\": \"test@example.com\",\n        \"phone\": \"2348000000000\"\n      }\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "x-operation-id": "bulkVirtualAccounts",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Create 1–50 static test accounts: HTTP 201', () => pm.response.to.have.status(201));",
+                  "if (pm.response.code >= 400) { const e = pm.response.json().error || {}; console.log(`FirstFlip error ${e.code}: ${e.message}`); }",
+                  "if (pm.response.code < 300) pm.collectionVariables.set('virtual_account_batch_id', pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "id": "26ca2032-c1d3-79bc-28d1-1f211975f8ab"
+        },
+        {
+          "name": "Retrieve a virtual-account batch",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/virtual_accounts/bulk/{{virtual_account_batch_id}}",
+            "description": "Local test mode only; not deployed by this branch. "
+          },
+          "x-operation-id": "getVirtualAccountBatch",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Retrieve a virtual-account batch: HTTP 200', () => pm.response.to.have.status(200));",
+                  "if (pm.response.code >= 400) { const e = pm.response.json().error || {}; console.log(`FirstFlip error ${e.code}: ${e.message}`); }"
+                ]
+              }
+            }
+          ],
+          "id": "48ebd0f6-ac0f-5e6c-1d8a-41ec0183b8bc"
+        },
+        {
+          "name": "Start a test BVN consent flow",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/verifications/bvn",
+            "description": "Local test mode only; not deployed by this branch. consent_url is null in local simulation. A test result cannot grant real KYC approval or live keys.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bvn\": \"22222222280\",\n  \"first_name\": \"Test\",\n  \"last_name\": \"Customer\",\n  \"redirect_url\": \"https://example.com/complete\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "x-operation-id": "createBvnVerification",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Start a test BVN consent flow: HTTP 201', () => pm.response.to.have.status(201));",
+                  "if (pm.response.code >= 400) { const e = pm.response.json().error || {}; console.log(`FirstFlip error ${e.code}: ${e.message}`); }",
+                  "if (pm.response.code < 300) pm.collectionVariables.set('bvn_verification_id', pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "id": "a5885308-1c39-baf3-6bcd-0580af98a147"
+        },
+        {
+          "name": "Retrieve a customer test BVN status",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/verifications/bvn/{{bvn_verification_id}}",
+            "description": "Local test mode only; not deployed by this branch. "
+          },
+          "x-operation-id": "getBvnVerification",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Retrieve a customer test BVN status: HTTP 200', () => pm.response.to.have.status(200));",
+                  "if (pm.response.code >= 400) { const e = pm.response.json().error || {}; console.log(`FirstFlip error ${e.code}: ${e.message}`); }"
+                ]
+              }
+            }
+          ],
+          "id": "6df83607-7d2a-315d-de41-358bceacff83"
+        },
+        {
+          "name": "Simulate a consent decision",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/verifications/bvn/{{bvn_verification_id}}/simulate",
+            "description": "Local test mode only; not deployed by this branch. ",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"outcome\": \"verified\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "x-operation-id": "simulateBvnVerification",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Simulate a consent decision: HTTP 200', () => pm.response.to.have.status(200));",
+                  "if (pm.response.code >= 400) { const e = pm.response.json().error || {}; console.log(`FirstFlip error ${e.code}: ${e.message}`); }"
+                ]
+              }
+            }
+          ],
+          "id": "3687edb9-b765-7813-c4e9-664285e498ad"
+        },
+        {
+          "name": "Resolve a documented local test fixture",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/verifications/bank_account",
+            "description": "Local test mode only; not deployed by this branch. NG bank, GH bank and GH mobile-money fixtures only. Unknown real account numbers are refused.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"country\": \"NG\",\n  \"account_bank\": \"044\",\n  \"account_number\": \"0690000032\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "x-operation-id": "resolveBankAccount",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Resolve a documented local test fixture: HTTP 200', () => pm.response.to.have.status(200));",
+                  "if (pm.response.code >= 400) { const e = pm.response.json().error || {}; console.log(`FirstFlip error ${e.code}: ${e.message}`); }"
+                ]
+              }
+            }
+          ],
+          "id": "aa2fb0aa-3015-b3b3-4f7a-1daa7071279d"
+        },
+        {
+          "name": "Create a test bank/mobile-money/stablecoin transfer",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/transfers",
+            "description": "Local test mode only; not deployed by this branch. Validate corridor, network and currency-specific metadata. No payout fee is quoted; fee is null.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"mobile_money\",\n  \"country\": \"GH\",\n  \"currency\": \"GHS\",\n  \"account_bank\": \"MTN\",\n  \"account_number\": \"233240000001\",\n  \"amount\": 100,\n  \"beneficiary_name\": \"Test Customer\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "x-operation-id": "createTransfer",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Create a test bank/mobile-money/stablecoin transfer: HTTP 201', () => pm.response.to.have.status(201));",
+                  "if (pm.response.code >= 400) { const e = pm.response.json().error || {}; console.log(`FirstFlip error ${e.code}: ${e.message}`); }",
+                  "if (pm.response.code < 300) pm.collectionVariables.set('transfer_id', pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "id": "debc183e-b700-1dbb-749e-527c6b4d7085"
+        },
+        {
+          "name": "List test transfers",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/transfers?limit=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "transfers"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "20",
+                  "disabled": true
+                },
+                {
+                  "key": "status",
+                  "value": "failed",
+                  "disabled": true
+                },
+                {
+                  "key": "batch_id",
+                  "value": "{{transfer_batch_id}}",
+                  "disabled": true
+                },
+                {
+                  "key": "starting_after",
+                  "value": "{{transfer_id}}",
+                  "disabled": true
+                },
+                {
+                  "key": "created_from",
+                  "value": "2026-11-04T00:00:00Z",
+                  "disabled": true
+                },
+                {
+                  "key": "created_before",
+                  "value": "2026-11-05T00:00:00Z",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Newest first, limit 1–100 (default 20). Filter by status or by the batch that created the payout; page with starting_after."
+          },
+          "x-operation-id": "listTransfers",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('List test transfers: HTTP 200', () => pm.response.to.have.status(200));",
+                  "if (pm.response.code >= 400) { const e = pm.response.json().error || {}; console.log(`FirstFlip error ${e.code}: ${e.message}`); }"
+                ]
+              }
+            }
+          ],
+          "id": "e8b4460a-87ec-a2ab-50b8-964e12f58621"
+        },
+        {
+          "name": "Retrieve a test transfer",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/transfers/{{transfer_id}}",
+            "description": "Local test mode only; not deployed by this branch. "
+          },
+          "x-operation-id": "getTransfer",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Retrieve a test transfer: HTTP 200', () => pm.response.to.have.status(200));",
+                  "if (pm.response.code >= 400) { const e = pm.response.json().error || {}; console.log(`FirstFlip error ${e.code}: ${e.message}`); }"
+                ]
+              }
+            }
+          ],
+          "id": "627a5aa6-4727-0c31-fbd0-7978f3fcd65d"
+        },
+        {
+          "name": "Simulate a transfer result",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/transfers/{{transfer_id}}/simulate",
+            "description": "Local test mode only; not deployed by this branch. ",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"successful\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "x-operation-id": "simulateTransfer",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Simulate a transfer result: HTTP 200', () => pm.response.to.have.status(200));",
+                  "if (pm.response.code >= 400) { const e = pm.response.json().error || {}; console.log(`FirstFlip error ${e.code}: ${e.message}`); }"
+                ]
+              }
+            }
+          ],
+          "id": "8231f181-965f-a65a-7c22-2f3bc8b8a277"
+        },
+        {
+          "name": "Create 1–50 test transfer records",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/transfers/bulk",
+            "description": "Local test mode only; not deployed by this branch. Omit per-item references. Batch completed means resource creation; each payout is still new.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"transfers\": [\n    {\n      \"type\": \"mobile_money\",\n      \"country\": \"UG\",\n      \"currency\": \"UGX\",\n      \"account_bank\": \"MTN\",\n      \"account_number\": \"256240000001\",\n      \"amount\": 1000,\n      \"beneficiary_name\": \"Test Customer\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "x-operation-id": "bulkTransfers",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Create 1–50 test transfer records: HTTP 201', () => pm.response.to.have.status(201));",
+                  "if (pm.response.code >= 400) { const e = pm.response.json().error || {}; console.log(`FirstFlip error ${e.code}: ${e.message}`); }",
+                  "if (pm.response.code < 300) pm.collectionVariables.set('transfer_batch_id', pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "id": "120374a8-8333-0808-15a8-47dbc0c006c9"
+        },
+        {
+          "name": "Retrieve a transfer batch",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/transfers/bulk/{{transfer_batch_id}}",
+            "description": "Local test mode only; not deployed by this branch. "
+          },
+          "x-operation-id": "getTransferBatch",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Retrieve a transfer batch: HTTP 200', () => pm.response.to.have.status(200));",
+                  "if (pm.response.code >= 400) { const e = pm.response.json().error || {}; console.log(`FirstFlip error ${e.code}: ${e.message}`); }"
+                ]
+              }
+            }
+          ],
+          "id": "3462ac2c-af5d-ff2c-efd7-9e2f7f96fc8c"
+        }
+      ],
+      "id": "59aea70d-5d23-443c-022a-537790fb7291"
+    }
+  ],
+  "event": [],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://api.firstflip.ng/v1",
+      "type": "string"
+    },
+    {
+      "key": "secretKey",
+      "value": "ffk_test_REPLACE_ME",
+      "type": "string"
+    },
+    {
+      "key": "charge_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "payment_link_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "subaccount_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "card_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "otp_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "fx_quote_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "fx_trade_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "virtual_account_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "virtual_account_batch_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "bvn_verification_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "transfer_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "transfer_batch_id",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{secretKey}}",
+        "type": "string"
+      }
+    ]
+  },
+  "info": {
+    "_postman_id": "6f1c2b1e-4a7d-4f0e-9a51-f1f1e0a1c0de",
+    "name": "FirstFlip API (v1)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "# FirstFlip API — start here\n\nAccept crypto and get paid in your own currency. This collection is the whole API in **test mode**:\nnothing here moves real money.\n\n## Five steps to a paid test charge\n\n1. **Pick the environment.** Top right, choose **FirstFlip Sandbox**.\n2. **Paste your test key.** Open the collection's **Variables** tab and set `secretKey` to your\n   `ffk_test_…` key (during the beta, FirstFlip issues it on request over a private channel).\n   Keep it secret; never share a screenshot of it.\n3. **Account → Retrieve the account for this key.** Press **Send**. You should see your business name\n   and `\"livemode\": false`.\n4. **Charges → Create a charge.** Press **Send**. You get a charge with a crypto amount and a\n   `hosted_url`. The charge id is saved for you automatically.\n5. **Sandbox → Simulate a payment**, then **Charges → Retrieve a charge**: the status is now `paid`.\n   If FirstFlip registered a webhook endpoint for you, it just received a signed `charge.paid` event.\n\n## Payment links\n\n**Payment links → Create a payment link** makes one shareable link; each customer who opens it gets\ntheir own charge. Its id is saved automatically, so **Retrieve** and **Deactivate** work right after.\n\n## Run everything at once\n\nClick the collection → **Run** → **Run FirstFlip API (v1)**. Every request checks its own status,\nso you see green or red per step.\n\n## When something fails\n\nOpen **Console** (bottom left). Failed requests log the FirstFlip error code, for example\n`amount_too_small` or `invalid_api_key`. Every code is explained in the docs:\nguides/idempotency-and-errors.md in the FirstFlip developer docs.\n\n- **401 invalid_api_key**: the key is wrong, revoked, or still `ffk_test_REPLACE_ME`.\n- **404 not_found on every request**: the Developer API isn't switched on yet.\n- **403 live_mode_unavailable**: you used a live key; live mode isn't open yet.\n\nGenerated from openapi.yaml; don't edit by hand."
+  }
+}

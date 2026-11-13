@@ -1,0 +1,731 @@
+{
+  "name": "Services sandbox",
+  "description": "Copied from apps/server/docs/api/FirstFlip.postman_collection.json; the server-side check-service-contract keeps that folder in lockstep with api/services.openapi.json.",
+  "item": [
+    {
+      "name": "Retrieve FirstFlip OTP channel prices",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/otps/pricing",
+        "description": "Local test mode only; not deployed by this branch. Retail is exactly twice the server-configured channel cost. No debit is made."
+      },
+      "x-operation-id": "getOtpPricing"
+    },
+    {
+      "name": "Create a test OTP",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Idempotency-Key",
+            "value": "{{$guid}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/otps",
+        "description": "Local test mode only; not deployed by this branch. Default six digits; 5–7 accepted. Five attempts; 1–10 minute expiry. sandbox.code exists only on creation.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"customer\": {\n    \"name\": \"Test Customer\",\n    \"first_name\": \"Test\",\n    \"last_name\": \"Customer\",\n    \"email\": \"test@example.com\",\n    \"phone\": \"2348000000000\"\n  },\n  \"medium\": [\n    \"sms\"\n  ]\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "x-operation-id": "createOtp",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (pm.response.code < 300) pm.collectionVariables.set('otp_id', pm.response.json().id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Retrieve a test OTP",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/otps/{{otp_id}}",
+        "description": "Local test mode only; not deployed by this branch. "
+      },
+      "x-operation-id": "getOtp"
+    },
+    {
+      "name": "Validate a test OTP once",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Idempotency-Key",
+            "value": "{{$guid}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/otps/{{otp_id}}/validate",
+        "description": "Local test mode only; not deployed by this branch. ",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"otp\": \"123456\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "x-operation-id": "validateOtp"
+    },
+    {
+      "name": "Create a synthetic FX quote",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Idempotency-Key",
+            "value": "{{$guid}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/fx/quotes",
+        "description": "Local test mode only; not deployed by this branch. NGN/USD, GHS/USD and USD/NGN only. Synthetic rates; minimum USD 1000 equivalent. Expiry five minutes.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"base_currency\": \"NGN\",\n  \"target_currency\": \"USD\",\n  \"quantity\": 1600000,\n  \"scenario\": \"processing\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "x-operation-id": "createFxQuote",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (pm.response.code < 300) pm.collectionVariables.set('fx_quote_id', pm.response.json().id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Retrieve a test FX quote",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/fx/quotes/{{fx_quote_id}}",
+        "description": "Local test mode only; not deployed by this branch. "
+      },
+      "x-operation-id": "getFxQuote"
+    },
+    {
+      "name": "Complete a processing test quote",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Idempotency-Key",
+            "value": "{{$guid}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/fx/quotes/{{fx_quote_id}}/simulate",
+        "description": "Local test mode only; not deployed by this branch. ",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"status\": \"ready\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "x-operation-id": "simulateFxQuote"
+    },
+    {
+      "name": "Consume a ready quote for one trade",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Idempotency-Key",
+            "value": "{{$guid}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/fx/trades",
+        "description": "Local test mode only; not deployed by this branch. ",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"quote_id\": \"{{fx_quote_id}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "x-operation-id": "createFxTrade",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (pm.response.code < 300) pm.collectionVariables.set('fx_trade_id', pm.response.json().id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Retrieve a test FX trade",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/fx/trades/{{fx_trade_id}}",
+        "description": "Local test mode only; not deployed by this branch. "
+      },
+      "x-operation-id": "getFxTrade"
+    },
+    {
+      "name": "Simulate a trade result",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Idempotency-Key",
+            "value": "{{$guid}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/fx/trades/{{fx_trade_id}}/simulate",
+        "description": "Local test mode only; not deployed by this branch. ",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"status\": \"settled\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "x-operation-id": "simulateFxTrade"
+    },
+    {
+      "name": "Create an NGN or GHS test account",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Idempotency-Key",
+            "value": "{{$guid}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/virtual_accounts",
+        "description": "Local test mode only; not deployed by this branch. Static NGN BVN inputs require matching consented test BVN verification. NIN is format-only in local simulation.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"currency\": \"GHS\",\n  \"type\": \"static\",\n  \"amount\": 100,\n  \"customer\": {\n    \"name\": \"Test Customer\",\n    \"first_name\": \"Test\",\n    \"last_name\": \"Customer\",\n    \"email\": \"test@example.com\",\n    \"phone\": \"2348000000000\"\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "x-operation-id": "createVirtualAccount",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (pm.response.code < 300) pm.collectionVariables.set('virtual_account_id', pm.response.json().id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Retrieve a test virtual account",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/virtual_accounts/{{virtual_account_id}}",
+        "description": "Local test mode only; not deployed by this branch. "
+      },
+      "x-operation-id": "getVirtualAccount"
+    },
+    {
+      "name": "Simulate a transfer into a test account",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Idempotency-Key",
+            "value": "{{$guid}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/virtual_accounts/{{virtual_account_id}}/simulate_payment",
+        "description": "Local test mode only; not deployed by this branch. NGN underpayments reverse; excess is reversed. GHS requires exact expected amount. No wallet is credited.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"amount\": 100,\n  \"reference\": \"{{$guid}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "x-operation-id": "simulateVirtualAccountPayment"
+    },
+    {
+      "name": "Deactivate a test account",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Idempotency-Key",
+            "value": "{{$guid}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/virtual_accounts/{{virtual_account_id}}/deactivate",
+        "description": "Local test mode only; not deployed by this branch. ",
+        "body": {
+          "mode": "raw",
+          "raw": "{}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "x-operation-id": "deactivateVirtualAccount"
+    },
+    {
+      "name": "Create 1–50 static test accounts",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Idempotency-Key",
+            "value": "{{$guid}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/virtual_accounts/bulk",
+        "description": "Local test mode only; not deployed by this branch. One currency; per-item references omitted. completed means provisioning finished.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"currency\": \"GHS\",\n  \"accounts\": [\n    {\n      \"currency\": \"GHS\",\n      \"type\": \"static\",\n      \"amount\": 100,\n      \"customer\": {\n        \"name\": \"Test Customer\",\n        \"first_name\": \"Test\",\n        \"last_name\": \"Customer\",\n        \"email\": \"test@example.com\",\n        \"phone\": \"2348000000000\"\n      }\n    }\n  ]\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "x-operation-id": "bulkVirtualAccounts",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (pm.response.code < 300) pm.collectionVariables.set('virtual_account_batch_id', pm.response.json().id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Retrieve a virtual-account batch",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/virtual_accounts/bulk/{{virtual_account_batch_id}}",
+        "description": "Local test mode only; not deployed by this branch. "
+      },
+      "x-operation-id": "getVirtualAccountBatch"
+    },
+    {
+      "name": "Start a test BVN consent flow",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Idempotency-Key",
+            "value": "{{$guid}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/verifications/bvn",
+        "description": "Local test mode only; not deployed by this branch. consent_url is null in local simulation. A test result cannot grant real KYC approval or live keys.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"bvn\": \"22222222280\",\n  \"first_name\": \"Test\",\n  \"last_name\": \"Customer\",\n  \"redirect_url\": \"https://example.com/complete\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "x-operation-id": "createBvnVerification",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (pm.response.code < 300) pm.collectionVariables.set('bvn_verification_id', pm.response.json().id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Retrieve a customer test BVN status",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/verifications/bvn/{{bvn_verification_id}}",
+        "description": "Local test mode only; not deployed by this branch. "
+      },
+      "x-operation-id": "getBvnVerification"
+    },
+    {
+      "name": "Simulate a consent decision",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Idempotency-Key",
+            "value": "{{$guid}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/verifications/bvn/{{bvn_verification_id}}/simulate",
+        "description": "Local test mode only; not deployed by this branch. ",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"outcome\": \"verified\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "x-operation-id": "simulateBvnVerification"
+    },
+    {
+      "name": "Resolve a documented local test fixture",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Idempotency-Key",
+            "value": "{{$guid}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/verifications/bank_account",
+        "description": "Local test mode only; not deployed by this branch. NG bank, GH bank and GH mobile-money fixtures only. Unknown real account numbers are refused.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"country\": \"NG\",\n  \"account_bank\": \"044\",\n  \"account_number\": \"0690000032\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "x-operation-id": "resolveBankAccount"
+    },
+    {
+      "name": "Create a test bank/mobile-money/stablecoin transfer",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Idempotency-Key",
+            "value": "{{$guid}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/transfers",
+        "description": "Local test mode only; not deployed by this branch. Validate corridor, network and currency-specific metadata. No payout fee is quoted; fee is null.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"type\": \"mobile_money\",\n  \"country\": \"GH\",\n  \"currency\": \"GHS\",\n  \"account_bank\": \"MTN\",\n  \"account_number\": \"233240000001\",\n  \"amount\": 100,\n  \"beneficiary_name\": \"Test Customer\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "x-operation-id": "createTransfer",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (pm.response.code < 300) pm.collectionVariables.set('transfer_id', pm.response.json().id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "List test transfers",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/transfers?limit=20",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "transfers"
+          ],
+          "query": [
+            {
+              "key": "limit",
+              "value": "20"
+            },
+            {
+              "key": "status",
+              "value": "failed",
+              "disabled": true
+            },
+            {
+              "key": "batch_id",
+              "value": "{{transfer_batch_id}}",
+              "disabled": true
+            },
+            {
+              "key": "starting_after",
+              "value": "{{transfer_id}}",
+              "disabled": true
+            },
+            {
+              "key": "created_from",
+              "value": "2026-11-04T00:00:00Z",
+              "disabled": true
+            },
+            {
+              "key": "created_before",
+              "value": "2026-11-05T00:00:00Z",
+              "disabled": true
+            }
+          ]
+        },
+        "description": "Newest first, limit 1–100 (default 20). Filter by status or by the batch that created the payout; page with starting_after."
+      },
+      "x-operation-id": "listTransfers"
+    },
+    {
+      "name": "Retrieve a test transfer",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/transfers/{{transfer_id}}",
+        "description": "Local test mode only; not deployed by this branch. "
+      },
+      "x-operation-id": "getTransfer"
+    },
+    {
+      "name": "Simulate a transfer result",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Idempotency-Key",
+            "value": "{{$guid}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/transfers/{{transfer_id}}/simulate",
+        "description": "Local test mode only; not deployed by this branch. ",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"status\": \"successful\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "x-operation-id": "simulateTransfer"
+    },
+    {
+      "name": "Create 1–50 test transfer records",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Idempotency-Key",
+            "value": "{{$guid}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/transfers/bulk",
+        "description": "Local test mode only; not deployed by this branch. Omit per-item references. Batch completed means resource creation; each payout is still new.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"transfers\": [\n    {\n      \"type\": \"mobile_money\",\n      \"country\": \"UG\",\n      \"currency\": \"UGX\",\n      \"account_bank\": \"MTN\",\n      \"account_number\": \"256240000001\",\n      \"amount\": 1000,\n      \"beneficiary_name\": \"Test Customer\"\n    }\n  ]\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "x-operation-id": "bulkTransfers",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (pm.response.code < 300) pm.collectionVariables.set('transfer_batch_id', pm.response.json().id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Retrieve a transfer batch",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/transfers/bulk/{{transfer_batch_id}}",
+        "description": "Local test mode only; not deployed by this branch. "
+      },
+      "x-operation-id": "getTransferBatch"
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "name": "firstflip-developers",
+  "private": true,
+  "description": "FirstFlip API reference, guides and Postman collection. openapi.yaml is the source of truth.",
+  "scripts": {
+    "lint": "redocly lint openapi.yaml",
+    "bundle": "redocly bundle openapi.yaml -o .build/openapi.yaml",
+    "build:postman": "node scripts/build-postman.js",
+    "build:reference": "redocly build-docs openapi.yaml -o reference/index.html",
+    "build:agents": "node scripts/build-agent-tools.js",
+    "build": "npm run lint && npm run build:postman && npm run build:reference && npm run build:assistant && npm run build:agents && npm run build:discovery",
+    "check": "npm run check:content && npm run test:export",
+    "build:assistant": "npm run bundle && node scripts/build-assistant-knowledge.js",
+    "check:guide": "node scripts/check-guide-errors.js && node scripts/check-guide-scopes.js && node scripts/check-guide-events.js && node scripts/check-guide-paths.js && node scripts/check-postman-coverage.js && node scripts/check-guide-hints.js && node scripts/check-guide-diagrams.js && node scripts/check-public-links.js && node scripts/check-public-privacy.js",
+    "test:sdk": "node --test sdks/node/test/*.test.js",
+    "test:agents": "node --test agents/test/*.test.js",
+    "build:discovery": "node scripts/build-discovery.js",
+    "test:discovery": "node --test test/*.test.js",
+    "check:content": "npm run check:guide && npm run test:sdk && npm run test:agents && npm run test:discovery && npm run build && git diff --exit-code -- postman reference assistant agents skills llms.txt llms-full.txt .well-known public-files.json",
+    "test:export": "node scripts/check-clean-export.js"
+  },
+  "devDependencies": {
+    "@redocly/cli": "^1.34.0",
+    "openapi-to-postmanv2": "^4.25.0",
+    "yaml": "^2.9.1"
+  }
+}

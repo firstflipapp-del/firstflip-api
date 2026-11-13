@@ -1,0 +1,3543 @@
+# FirstFlip API knowledge (generated from firstflip-developers; do not edit by hand)
+
+Base URL: https://api.firstflip.ng/v1 — status: beta, test mode only (ffk_test_ keys).
+
+## Endpoints
+- GET /v1/account — Retrieve the current account
+- POST /v1/charges — Create a charge (params: Idempotency-Key)
+- GET /v1/charges — List charges (params: limit, starting_after, created_from, created_before, status, reference)
+- GET /v1/charges/{id} — Retrieve a charge (params: id)
+- POST /v1/charges/{id}/cancel — Cancel a charge (params: id, Idempotency-Key)
+- POST /v1/charges/{id}/simulate_payment — Simulate payment (test mode) (params: id, Idempotency-Key)
+- POST /v1/payment_links — Create a payment link (params: Idempotency-Key)
+- GET /v1/payment_links — List payment links (params: limit, created_from, created_before, starting_after, active)
+- GET /v1/payment_links/{id} — Retrieve a payment link (params: id)
+- POST /v1/payment_links/{id}/deactivate — Deactivate a payment link (params: id, Idempotency-Key)
+- POST /v1/subaccounts — Create a sub-account (params: Idempotency-Key)
+- GET /v1/subaccounts — List sub-accounts (params: limit, starting_after, created_from, created_before, status, reference)
+- GET /v1/subaccounts/{id} — Retrieve a sub-account (params: id)
+- POST /v1/subaccounts/{id}/suspend — Suspend a sub-account (params: id, Idempotency-Key)
+- POST /v1/subaccounts/{id}/activate — Activate a sub-account (params: id, Idempotency-Key)
+- POST /v1/assistant — Ask the developer assistant
+- GET /v1/sandbox/pay/{token} — Hosted pay page for a charge (test mode) (params: token)
+- POST /v1/sandbox/pay/{token} — Simulate payment from the hosted page (test mode) (params: token)
+- GET /v1/sandbox/l/{token} — Hosted landing page for a payment link (test mode) (params: token)
+- POST /v1/sandbox/l/{token} — Open a payment link — create a charge and redirect (test mode) (params: token)
+- POST /v1/cards — Create a virtual card (params: Idempotency-Key)
+- GET /v1/cards — List virtual cards (params: limit, starting_after, created_from, created_before, status)
+- GET /v1/cards/{id} — Retrieve a virtual card (params: id)
+- POST /v1/cards/{id}/fund — Fund a virtual card (params: id, Idempotency-Key)
+- POST /v1/cards/{id}/withdraw — Withdraw from a virtual card (params: id, Idempotency-Key)
+- POST /v1/cards/{id}/freeze — Freeze a virtual card (params: id, Idempotency-Key)
+- POST /v1/cards/{id}/unfreeze — Unfreeze a virtual card (params: id, Idempotency-Key)
+- POST /v1/cards/{id}/close — Close a virtual card (params: id, Idempotency-Key)
+- POST /v1/cards/{id}/spend_limits — Update a card's spend limits (params: id, Idempotency-Key)
+- POST /v1/cards/{id}/simulate_authorization — Simulate a card authorization (params: id, Idempotency-Key)
+- GET /v1/cards/{id}/transactions — List a card's transactions (params: id, limit, starting_after, created_from, created_before, type, status)
+- GET /v1/otps/pricing — Retrieve FirstFlip OTP channel prices
+- POST /v1/otps — Create a test OTP (params: Idempotency-Key)
+- GET /v1/otps/{id} — Retrieve a test OTP (params: id)
+- POST /v1/otps/{id}/validate — Validate a test OTP once (params: id, Idempotency-Key)
+- POST /v1/fx/quotes — Create a synthetic FX quote (params: Idempotency-Key)
+- GET /v1/fx/quotes/{id} — Retrieve a test FX quote (params: id)
+- POST /v1/fx/quotes/{id}/simulate — Complete a processing test quote (params: id, Idempotency-Key)
+- POST /v1/fx/trades — Consume a ready quote for one trade (params: Idempotency-Key)
+- GET /v1/fx/trades/{id} — Retrieve a test FX trade (params: id)
+- POST /v1/fx/trades/{id}/simulate — Simulate a trade result (params: id, Idempotency-Key)
+- POST /v1/virtual_accounts — Create an NGN or GHS test account (params: Idempotency-Key)
+- GET /v1/virtual_accounts/{id} — Retrieve a test virtual account (params: id)
+- POST /v1/virtual_accounts/{id}/deactivate — Deactivate a test account (params: id, Idempotency-Key)
+- POST /v1/virtual_accounts/{id}/simulate_payment — Simulate a transfer into a test account (params: id, Idempotency-Key)
+- POST /v1/virtual_accounts/bulk — Create 1–50 static test accounts (params: Idempotency-Key)
+- GET /v1/virtual_accounts/bulk/{id} — Retrieve a virtual-account batch (params: id)
+- POST /v1/verifications/bvn — Start a test BVN consent flow (params: Idempotency-Key)
+- GET /v1/verifications/bvn/{id} — Retrieve a customer test BVN status (params: id)
+- POST /v1/verifications/bvn/{id}/simulate — Simulate a consent decision (params: id, Idempotency-Key)
+- POST /v1/verifications/bank_account — Resolve a documented local test fixture (params: Idempotency-Key)
+- GET /v1/transfers — List test transfers (params: limit, starting_after, status, batch_id, created_from, created_before)
+- POST /v1/transfers — Create a test bank/mobile-money/stablecoin transfer (params: Idempotency-Key)
+- GET /v1/transfers/{id} — Retrieve a test transfer (params: id)
+- POST /v1/transfers/{id}/simulate — Simulate a transfer result (params: id, Idempotency-Key)
+- POST /v1/transfers/bulk — Create 1–50 test transfer records (params: Idempotency-Key)
+- GET /v1/transfers/bulk/{id} — Retrieve a transfer batch (params: id)
+
+## Webhook events
+- charge.paid: A charge was paid
+- charge.expired: A charge expired
+- charge.cancelled: A charge was cancelled
+
+
+<a id="guide-quickstart"></a>
+<guide name="quickstart">
+# Quickstart
+
+From a test key to a paid test charge, in five steps. Nothing here moves real money.
+
+## Quick hints
+
+Short points that matter more than the paragraphs below them.
+
+1. **Confirm the key before you build anything.** `GET /v1/account` answers with `livemode: false` and the last characters of the key — one call that rules out a wrong environment.
+2. **The key is shown once and lives on your server only.** Save `ffk_test_…` the moment it arrives; never put it in a browser bundle, a mobile app, or a chat window.
+3. **`amount` is in major units.** `32000` is ₦32,000, not 32,000,000 kobo. Minor units is the one mistake that makes a charge 100× too big.
+4. **Charge what `payment.asset_amount` says, on `payment.network`.** That figure already includes the service fee; a payment on another network **can lose the funds**.
+5. **A test-mode address starts with `TEST-`.** Never send real value to it — and never let a customer's payment page show a production-looking number from a test charge.
+6. **The charge exists before the page opens.** `POST /v1/charges` created it; `hosted_url` is only where the customer pays — and in test mode, where the **Simulate payment** button is.
+7. **The simulate call needs its own `Idempotency-Key`.** So does the create. A retry without a key is how one order becomes two charges.
+8. **Fulfil from `charge.paid`, never from the browser returning.** Webhook or `GET /v1/charges/:id` — the customer's redirect proves nothing.
+9. **During the beta we register your webhook.** Send a public `https` URL and we return its `whsec_…` signing secret privately; verify every delivery before you act on it.
+10. **The Node SDK has a typed method for all 53 API-key operations**, the 11 [virtual-card](#guide-cards) routes included — REST and the [agent tools](#guide-agents) are the same contract underneath.
+
+## The whole flow, end to end
+
+Every step below is an operation in the contract. Read it left to right: the five numbered sections under it
+are the same path expanded.
+
+```mermaid
+flowchart LR
+  K["Your server<br/>FIRSTFLIP_SECRET_KEY = ffk_test_…"]
+  K -->|"GET /v1/account"| A["Account check<br/>livemode: false proves the environment"]
+  A -->|"POST /v1/charges<br/>Idempotency-Key required"| C["Charge created<br/>status: pending"]
+  C -->|"hosted_url on the response"| H["Hosted pay page<br/>GET /v1/sandbox/pay/:token"]
+  H -->|"customer pays, or presses Simulate payment<br/>POST /v1/charges/:id/simulate_payment"| P{"Payment"}
+  P -->|"confirmed"| PAID["status: paid<br/>event charge.paid"]
+  P -->|"window closes with no payment"| EXP["status: expired<br/>event charge.expired"]
+  P -->|"you called POST /v1/charges/:id/cancel"| CAN["status: cancelled<br/>event charge.cancelled"]
+  PAID -->|"signed POST to your endpoint"| W["Webhook handler<br/>verify whsec_… signature"]
+  W --> F["Fulfil the order"]
+  EXP -.->|"do not fulfil"| F
+  CAN -.->|"do not fulfil"| F
+  H -.->|"the browser returning to your site proves nothing"| F
+```
+
+`pending` is the only state a fresh charge can hold, and `paid`, `expired` and `cancelled` are the only ways
+out of it — those four values are the whole of `Charge.status`. Three of the four arrows out of the pay page
+end in a terminal state that fires an event, which is why the webhook is the fulfilment trigger and not the
+redirect.
+
+## 1. Get a test key
+
+During the beta, FirstFlip issues your test key: ask us and we send it over a private channel. (A
+Developer screen in the app is coming.) Save the key (`ffk_test_…`) as soon as you receive it; for your
+security it is shown only once. Keep it on your server, never in a browser or app.
+
+```bash
+export FIRSTFLIP_SECRET_KEY=ffk_test_...
+```
+
+## 2. Check the key
+
+```bash
+curl https://api.firstflip.ng/v1/account -H "Authorization: Bearer $FIRSTFLIP_SECRET_KEY"
+```
+
+```json
+{ "object": "account", "business_name": "Acme Stores", "livemode": false, "key": "ffk_test_…9f3a" }
+```
+
+## 3. Create a charge
+
+```bash
+curl https://api.firstflip.ng/v1/charges \
+  -H "Authorization: Bearer $FIRSTFLIP_SECRET_KEY" \
+  -H "Idempotency-Key: $(uuidgen)" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "amount": 32000,
+        "currency": "NGN",
+        "pay_asset": "USDT",
+        "reference": "order_1042",
+        "customer": { "email": "ada@example.com" }
+      }'
+```
+
+The response is a [charge](#guide-charges). The important fields:
+
+- `payment.asset_amount`: what the customer must send (service fee included), e.g. `22.5` USDT.
+- `payment.address`: where to send it. In test mode it starts with `TEST-`; never send real funds to it.
+- `hosted_url`: our payment page. Redirect your customer here.
+
+## 4. Pay it (simulated)
+
+Open `hosted_url` and press **Simulate payment**, or:
+
+```bash
+curl -X POST https://api.firstflip.ng/v1/charges/ch_test_.../simulate_payment \
+  -H "Authorization: Bearer $FIRSTFLIP_SECRET_KEY" \
+  -H "Idempotency-Key: $(uuidgen)"
+```
+
+The charge is now `paid`.
+
+## 5. Receive the webhook
+
+During the beta, send us your public `https` webhook URL; we register it and send you its signing
+secret (`whsec_…`) privately. Every paid, cancelled or expired charge is `POST`ed there, signed. See
+[Webhooks](#guide-webhooks) for verification code.
+
+Fulfil orders from the webhook (or by polling `GET /v1/charges/:id`), never from the customer's
+browser returning to your site.
+
+## Next
+
+- [Testing](#guide-testing): the full test checklist before you go live, and how each service is simulated.
+- Postman: the same flow with no code. Import both files, set `secretKey`, run
+  *Retrieve the account* then *Create a charge*.
+- Node.js SDK: a typed method for every API-key operation — **53 of the 53** — with safe
+  retries included (copy `sdks/node` into your project; the package is not on npm yet). That includes the 11
+  [virtual-card](#guide-cards) routes, which are `firstflip.cards.*`.
+- The same key opens the services: [payouts](#guide-payouts), [FX](#guide-fx), [virtual accounts](#guide-virtual-accounts),
+  [verifications](#guide-verifications) and [one-time passwords](#guide-one-time-passwords).
+
+## The contract file
+
+The API serves its own contract, so a generator or an agent can read it from the host it is calling instead of
+from this repository: `https://api.firstflip.ng/docs/openapi.yaml`, with the service operations at
+`https://api.firstflip.ng/docs/api/services.openapi.json`. The service file sits at the path the main spec's
+relative `$ref`s already point at, so the fetched YAML resolves with no bundling step. Both answers are cached
+for five minutes and revalidate with `ETag`.
+</guide>
+
+<a id="guide-authentication"></a>
+<guide name="authentication">
+# Authentication
+
+Every request carries your **secret key** as a bearer token:
+
+```http
+Authorization: Bearer ffk_test_7c1e…
+```
+
+## Quick hints
+
+1. **The prefix is the mode.** Same host, same paths, same shapes. `ffk_test_` is sandbox-only and `ffk_live_` is real; there is no test URL to forget to switch.
+2. **An empty scope list is the widest key you have.** It is not "no permissions" — it means every scope the mode allows. Re-mint least-privilege before you ship.
+3. **Scopes never widen after creation.** To change what a key can do, issue a new one and revoke the old.
+4. **A key is your business's signature.** Server-side only — env var or secrets manager. Never in a mobile app, browser code, a public repo or a support ticket. If it leaks, revoke first and rotate after.
+5. **We cannot read your key back.** Only a one-way hash is stored, so a lost key is a new key, and no FirstFlip staff can retrieve one for you.
+6. **Up to 5 active keys per mode** — enough for `web-prod`, `worker` and a staging key with room to rotate. Name keys by where they run so you know what breaks when you revoke one.
+7. **A `403` is not a lookup.** Everything above rung 9 in the ladder below is answered before the resource is read, so `403` never tells you an id exists and `404` always means you got a real answer.
+8. **`insufficient_scope` names the scope it wanted**, and each operation carries it as `x-required-scope` — read it off the reference instead of guessing which key fits.
+
+
+## Keys and modes
+
+| Prefix | Mode | What it can do |
+|---|---|---|
+| `ffk_test_` | Test | Sandbox only. Simulated payments, no money moves. |
+| `ffk_live_` | Live | Real charges. Not issued during the beta. |
+
+The key decides the mode; there is no separate test host. A test key can never see live data and a live
+key can never see test data. Every object says which it is (`livemode`, and ids like `ch_test_…`).
+
+## Scopes
+
+A key can be restricted to the parts of the API it needs. A key created **without** a scope list — including
+every key that predates scopes — can do everything its mode allows. A key's scopes are never widened after
+creation; rotate the key to change them. Each endpoint checks exactly one scope:
+
+| Scope | Covers |
+|---|---|
+| `account:read` | `GET /v1/account` |
+| `charges:read` / `charges:write` | list and retrieve charges / create, cancel, simulate payment |
+| `payment_links:read` / `payment_links:write` | list and retrieve links / create, deactivate |
+| `subaccounts:read` / `subaccounts:write` | list and retrieve sub-accounts / create, suspend, activate |
+| `cards:read` / `cards:write` | list and retrieve cards and their transactions / create, fund, withdraw, freeze, unfreeze, close, set spend limits, simulate an authorization. A live key is answered **per leg**, not all-or-nothing: four legs run, six answer `403 live_precondition_unmet`, and only the simulator still answers `403 live_mode_unavailable` — see [Virtual cards](#guide-cards) |
+| `otps:read` / `otps:write` | OTP pricing and lookup / create, validate |
+| `fx:read` / `fx:write` | retrieve quotes and trades / create, simulate |
+| `virtual_accounts:read` / `virtual_accounts:write` | retrieve and batch lookup / create, bulk, deactivate, simulate payment |
+| `verifications:read` / `verifications:write` | retrieve a BVN check / create, simulate, resolve a bank account |
+| `transfers:read` / `transfers:write` | list and retrieve payouts / create, bulk, simulate |
+| `assistant:ask` | `POST /v1/assistant` |
+
+Every operation in the reference carries the scope it requires as `x-required-scope`, so a tool can choose
+the right key without guessing. A request whose key does not carry the scope is refused with
+`403 insufficient_scope`, which names the scope the endpoint wanted. There is no separate "read-only key"
+switch: least privilege is the scope list you choose.
+
+**A key with no scope list is not a narrow key — it is the widest one you have.** An empty list means every
+scope the key's mode allows. If you minted a key before scopes existed, or never picked any, treat it as a
+full-access key and re-mint it least-privilege before you ship.
+
+## Keeping keys safe
+
+- A secret key acts for your business. Keep it on your **server**: an environment variable or a secrets
+  manager. Never put it in a mobile app, browser code, a public repo or a support message.
+- We store only a one-way hash of each key. We cannot show it to you again, and nobody at FirstFlip can
+  read it. If you lose it, create a new one.
+- Name keys by where they run (`web-prod`, `worker`), so you know what breaks when you revoke one.
+
+## IP allow-list
+
+Optionally restrict a key to exact IP addresses. Requests from any other IP get
+`403 ip_not_allowed`. Use it when your servers have fixed egress IPs. An allow-list is set when the key
+is created; during the beta, the test keys FirstFlip issues have none.
+
+## Expiry
+
+Every key stops working on a date, and you do not choose it: a test key lives **365 days** and a live key **180
+days**, counted from creation. Past the date every route — cards included — answers `401 key_expired`. That code is
+not a breach notification, it is a calendar: mint a successor. A key minted before this rule existed carries no
+stored date, so its lifetime is derived from its creation date rather than left open forever.
+
+## Rotation and revocation
+
+You can hold up to 5 **usable** keys per mode — revoked and expired keys stop taking a slot, so a rotation never
+fails because the old key is still counted. To rotate with no downtime:
+
+1. Get a new key and deploy it.
+2. Keep the old key running. A rotation leaves it working for **7 days** after its successor is issued, because
+   deployment is not atomic: a fleet of servers, a mobile build stuck in review and a cron nobody remembers all
+   read the old key for a while.
+3. Revoke the old key before that window ends, or let the window end for you. Revocation takes effect on the very
+   next request.
+
+During the beta, FirstFlip issues, rotates and revokes keys for you: ask us for the new key and to revoke the old
+one. If a key may have leaked, ask us to revoke it first and rotate after.
+
+## What FirstFlip watches on a key
+
+Usage is sampled, not logged — at most one use per key per minute records the address it arrived from, and that
+record is the address and the time, never a body or a customer. If the samples show **8 distinct addresses inside
+15 minutes**, the key looks shared rather than busy, and the desk treats it as an anomaly. That threshold is the
+point: a single leaked key rarely fans out wider than that, and a fleet behind one NAT egress rarely looks like
+eight.
+
+## Errors
+
+| Status | Code | Meaning |
+|---|---|---|
+| 401 | `invalid_api_key` | Missing, malformed, unknown or revoked key |
+| 401 | `key_expired` | The key is known and valid but past its expiry date — mint a successor, do not treat this as an incident |
+| 403 | `ip_not_allowed` | The key has an allow-list and this IP is not on it |
+| 403 | `insufficient_scope` | The key does not carry the scope the endpoint requires |
+| 403 | `business_inactive` | The business that owns the key is not active |
+| 403 | `api_access_paused` | FirstFlip paused API access for the business; contact support to resume it |
+| 403 | `live_mode_unavailable` | A live key was used while live mode is closed |
+
+## The order your request is checked in
+
+Every request walks the same ladder, and the **first rung that fails is the answer you get**. That matters when
+you are debugging: `403 insufficient_scope` means your body was never read, and `400 idempotency_key_required`
+means your scopes were fine all along.
+
+| # | What is checked | If it fails |
+|---|---|---|
+| 1 | The key: present, well-formed, known, not revoked, not past its expiry date, and the mode in its prefix matches the mode on record | `401 invalid_api_key`, or `401 key_expired` when the key is simply old |
+| 2 | The caller IP, if the key carries an allow-list | `403 ip_not_allowed` |
+| 3 | The business: approved, with an owner who is neither blocked nor deleted | `403 business_inactive` |
+| 4 | Whether FirstFlip has paused API access for the business | `403 api_access_paused` |
+| 5 | The scope the endpoint requires | `403 insufficient_scope` |
+| 6 | Your per-key rate bucket — 300 reads, 60 writes per minute | `429` with `Retry-After` |
+| 7 | Your `Idempotency-Key`: present, not still in flight, not already used for a different body | `400 idempotency_key_required`, `409 idempotency_in_progress`, `422 idempotency_key_reused` |
+| 8 | The endpoint's own mode rule | `403 live_mode_unavailable`, or `403 live_precondition_unmet` on a card leg whose rail is not built yet |
+| 9 | Your body, then the resource, then the business rules | `400`, `404`, or the outcome itself |
+
+```mermaid
+flowchart TD
+    R["your request<br/>Authorization: Bearer ffk_…"] --> A
+    subgraph FRONT["rungs 1–8: answered before your body is validated and before the resource is read"]
+        direction TB
+        A["1 — the key: present, well-formed, known,<br/>not revoked, not expired,<br/>and its prefix's mode matches the mode on record"]
+        B["2 — the caller IP, if the key carries an allow-list"]
+        C["3 — the business: approved, with an owner<br/>who is neither blocked nor deleted"]
+        D["4 — whether FirstFlip has paused API access<br/>for that business"]
+        E["5 — the scope this endpoint requires"]
+        F["6 — your per-key rate bucket<br/>300 reads, 60 writes per minute"]
+        G["7 — your Idempotency-Key: present, not still in flight,<br/>not already used for a different body"]
+        H["8 — the endpoint's own mode rule"]
+        A --> B --> C --> D --> E --> F --> G --> H
+    end
+    A -->|"fail"| AE["401 invalid_api_key"]
+    A -->|"past its expiry date"| KE["401 key_expired"]
+    B -->|"fail"| BE["403 ip_not_allowed"]
+    C -->|"fail"| CE["403 business_inactive"]
+    D -->|"fail"| DE["403 api_access_paused"]
+    E -->|"fail"| EE["403 insufficient_scope<br/>names the scope it wanted"]
+    F -->|"over"| FE["429 with Retry-After"]
+    G -->|"fail"| GE["400 idempotency_key_required<br/>409 idempotency_in_progress<br/>422 idempotency_key_reused"]
+    H -->|"a live key, on a surface whose rails are closed"| HE["403 live_mode_unavailable"]
+    H -->|"a live key, on a card leg whose rail is missing"| LF["403 live_precondition_unmet<br/>param names the rail"]
+    H --> I["9 — your body, then the resource, then the business rules"]
+    I -->|"400 · 404"| J["the fault is in the request,<br/>or the id is genuinely not yours"]
+    I -->|"ok"| K["the outcome itself"]
+```
+
+Read it top-down as a diagnosis: the code you got tells you which rung stopped you, and every rung above 9
+means the request never reached your data.
+
+Two consequences worth designing around:
+
+
+- **Everything above rung 9 is answered without looking at the resource.** On `/v1/cards` that is still true of the
+  legs a live key cannot run: a live key asking for a card id that does not exist gets
+  `403 live_precondition_unmet`, not `404`. It is no longer true of the four legs a live key *can* run — `get`,
+  `list`, `freeze` and `unfreeze` do the lookup, so an id that is not yours answers `404 resource_missing`. So a `403`
+  is never an existence check, and a `404` always means you got a real answer about a real lookup.
+- **Rung 8 fires before your body is validated.** If a card call is answering `400 invalid_parameter`, you are
+  already past the mode check — a test key, or one of the four live legs. If it answers `live_mode_unavailable` it is
+  the simulator, which is test-only by design, and if it answers `live_precondition_unmet` the rail named in `param`
+  is a platform decision that no fix to your request can change.
+</guide>
+
+<a id="guide-who-controls-what"></a>
+<guide name="who-controls-what">
+# Who controls what
+
+Four planes can change the state of a FirstFlip integration, and only one of them is the API. Most confusion in a
+support thread is one team reaching for the wrong plane — trying to rotate a key with a key, or waiting for a
+webhook to tell them why every call suddenly answers `403`.
+
+## Quick hints
+
+1. **`GET /v1/account` is the only thing the API says about your business, and it is read-only.** It returns `business_name`, `livemode` and the masked key. There is no endpoint that changes your payout bank account, your webhook endpoints or your keys.
+2. **`403 business_inactive` and `403 api_access_paused` are not your code.** Both are decisions made above your key, on rungs 3 and 4 of the ladder, and no change you push can clear them. Ask us.
+3. **Suspending a sub-account moves no money.** `status` is your own flag over your own tenant list — it is not a FirstFlip restriction and it does not freeze a balance.
+4. **A key cannot widen itself.** Scopes are fixed at creation, so the fix for `insufficient_scope` is a different key, never a different request.
+5. **Nobody can read a key back, including us.** We store a one-way hash. A "lost" key is a new key, and any FirstFlip staff member who could show it to you would have broken the design.
+6. **Which card legs you can run live is our decision, not yours.** A live key already runs `list`, `get`, `freeze` and `unfreeze`. The money legs answer `403 live_precondition_unmet` naming the rail that is missing, and there is no switch, no waitlist and no request shape that changes that. [Going live](#guide-going-live) says why.
+7. **Tenancy is absolute and silent.** Another business's id, or your own id under the other mode's key, is a `404`. There is no error that admits the object exists somewhere else.
+8. **Two card ceilings are ours, not yours.** A key holds 250 open cards, and a business commits $1,000,000 of approved card spend per rolling 30 days. No API call raises either number — the answers are `409 card_limit_reached` and `decline_code: over_tenant_monthly_limit`. What you control is the count under them: closing a card frees its slot, and the spend window rolls on its own.
+
+## The four planes
+
+```mermaid
+flowchart TB
+    subgraph K["Plane 1 — your API key: everything /v1 can do"]
+        K1["create and change your own objects:<br/>charges, payment links, cards*, sub-accounts,<br/>payouts, quotes, virtual accounts, checks, OTPs"]
+        K2["60 writes and 300 reads per minute, per key"]
+    end
+    subgraph T["Plane 2 — your tenant layer"]
+        T1["sub-account `status`: active or suspended.<br/>your flag, your meaning, no money either way"]
+    end
+    subgraph B["Plane 3 — your business account: never via /v1"]
+        B1["the payout bank account and currency"]
+        B2["webhook endpoints and the secrets that sign them"]
+        B3["issuing, naming and revoking keys"]
+    end
+    subgraph F["Plane 4 — FirstFlip operations"]
+        F1["approve the business; block or unblock its owner"]
+        F2["pause and resume API access for the whole business"]
+        F3["settle a paid charge out to your bank account"]
+    end
+    K1 -.->|"needs subaccounts:write"| T1
+    K ==>|"every request is first gated by"| G{"rungs 3 and 4<br/>of the guard ladder"}
+    B ==>|"plane 3 decides the business<br/>rung 3 reads"| G
+    F ==>|"plane 4 can pull the plug<br/>rung 4 enforces"| G
+    G -->|"both hold"| R["now your key's scopes decide what the call may do"]
+    G -->|"either fails"| X["403 business_inactive<br/>403 api_access_paused"]
+```
+
+\* cards are test-mode only.
+
+## Where each thing actually changes
+
+| You want to | Which plane | How |
+|---|---|---|
+| Take a payment | 1 | `POST /v1/charges`, then `hosted_url`. [Charges](#guide-charges) |
+| Stop a payment link | 1 | `POST /v1/payment_links/:id/deactivate`. [Payment links](#guide-payment-links) |
+| Model your own customers | 1–2 | `POST /v1/subaccounts` and its suspend/activate. [Sub-accounts](#guide-subaccounts) |
+| Move money onto a sandbox card | 1 | `POST /v1/cards/:id/fund`. [Cards](#guide-cards) |
+| Change where your settled money lands | 3 | Not an API call. Your business account's payout details. |
+| Start receiving webhooks | 3 | Register the endpoint with us; the secret comes with it. [Webhooks](#guide-webhooks) |
+| Rotate a leaked key | 3 | Ask us for a new key and revoke the old one. [Authentication](#guide-authentication) |
+| Get un-blocked after a `403 business_inactive` | 4 | Ask us — the business or its owner is what changed, not your request. |
+| Settle real money to a bank account | 4 | Only after live mode opens for a verified business. |
+
+## What no plane can do
+
+These are absences by design, and they are the reason a leaked key is survivable:
+
+- **No plane shows a key again after it was issued.** Hash-only storage.
+- **No API call changes your payout bank account, your webhook endpoints or your key list.** They are outside `/v1`
+  on purpose: a stolen key cannot redirect your settlements, and it cannot mint itself a second key.
+- **No key acts outside its mode and its business.** Test and live data never share a namespace, and neither do two
+  businesses.
+- **No request reaches the resource before rungs 1–8 are answered**, so a `403` never leaks existence. The full
+  ordering is in [Authentication](#guide-authentication).
+- **No call raises the two card ceilings.** 250 open cards per key and $1,000,000 of approved spend per business per
+  rolling 30 days are set in our code, not in your request body — they are the reason this surface can be opened up
+  later without changing what you already see. [Cards](#guide-cards) has both tables.
+- **No card route moves live money**, at any scope, from any key, under any configuration. The legs a live key can
+  run today read a card or change its state; every leg that would move money is refused before it reads a balance.
+
+## Reading this back from the API
+
+`GET /v1/account` is the one call that tells you which business and which mode you are actually standing in — run
+it whenever a `403` arrives and your code believes its own configuration more than the server does.
+</guide>
+
+<a id="guide-charges"></a>
+<guide name="charges">
+# Charges
+
+A **charge** is one request for payment. You set the price in your currency; FirstFlip quotes it in the
+crypto your customer pays with, and settles the value to your bank.
+
+## Quick hints
+
+Short points that matter more than the paragraphs below them.
+
+1. **`amount` is in major units, not kobo or cents.** `32000` is ₦32,000 and `20.5` is $20.50 — up to 2 decimals. Sending minor units is how a ₦500 order becomes a ₦50,000 one.
+2. **Show `asset_amount` exactly, and pay on `payment.network` only.** A short payment is not captured; a payment on the wrong network **can lose the funds**. This is the one mistake a retry cannot undo.
+3. **The fee is on top, not out of your price.** `asset_amount` = your converted price + `fee_asset_amount`; you receive your full price.
+4. **The quote is good for 15 minutes** (`rate_locked_until`). After that, re-read the charge — do not reuse the old address and amount.
+5. **Fulfil from `charge.paid`, not from your own polling.** Only `pending` changes; `paid`, `cancelled` and `expired` are final and each one sends a [webhook](#guide-webhooks).
+6. **`reference` is your order-level guard.** Unique per business, so a repeat is `409 duplicate_reference` — and `GET /v1/charges?reference=` returns the original instead of a second charge.
+7. **Expiry defaults to 60 minutes** (15 to 10080). `charge.expired` lands within about a minute of `expires_at`, so an unpaid customer needs a new charge.
+8. **The minimum is ₦5,000 / $5 today.** Below it, `amount_too_small` states the current figure — read it, do not hard-code it.
+9. **Page with `starting_after` until `has_more` is `false`; reconcile with `created_from` / `created_before`.** Those two are inclusive/exclusive, so consecutive windows never count a charge twice.
+10. **If you would rather not handle any of the above: redirect to `hosted_url`.** It is our page, with the amount, the address and live status.
+
+## Lifecycle
+
+These four values are the whole of `Charge.status`. Nothing else can appear in the field, and three of the
+four are final.
+
+```mermaid
+stateDiagram-v2
+    direction LR
+    [*] --> pending: POST /v1/charges
+    pending --> paid: customer pays, or POST /v1/charges/:id/simulate_payment
+    pending --> cancelled: POST /v1/charges/:id/cancel
+    pending --> expired: expires_at passes unpaid
+    paid --> [*]
+    cancelled --> [*]
+    expired --> [*]
+```
+
+Only `pending` changes. `paid`, `cancelled` and `expired` are final, and each sends a
+[webhook](#guide-webhooks).
+
+## Two clocks, not one
+
+A charge carries two different deadlines and they are frequently confused. The quote clock is short and
+renewable by re-reading; the payment clock is long and ends the charge.
+
+```mermaid
+flowchart LR
+  A["POST /v1/charges<br/>amount + currency + pay_asset"] --> B["Charge pending<br/>payment.address and payment.asset_amount issued"]
+  B --> C{"rate_locked_until<br/>15 minutes"}
+  C -->|"inside the window"| D["Quote honoured<br/>customer pays asset_amount"]
+  C -->|"after the window"| E["Re-read GET /v1/charges/:id<br/>do not reuse the old address or amount"]
+  E --> D
+  B --> F{"expires_at<br/>default 60 minutes, 15 to 10080"}
+  F -->|"paid before it"| G["status: paid<br/>event charge.paid"]
+  F -->|"unpaid when it passes"| H["status: expired<br/>event charge.expired, within about a minute"]
+  H -.->|"a new charge is required; an expired one cannot be revived"| B
+```
+
+## Creating a charge
+
+| Field | Required | Notes |
+|---|---|---|
+| `amount` | yes | Your price in **major units**, up to 2 decimals: `32000` = ₦32,000, `20.5` = $20.50. Max ₦1bn / $1m per charge. |
+| `currency` | yes | `NGN` or `USD` |
+| `pay_asset` | no | `USDT` (default), `USDC`, `BTC` |
+| `pay_network` | no | See the table below. Defaults to the asset's first network. |
+| `reference` | no | Your order id. Unique per business, so a repeat returns `409 duplicate_reference`. |
+| `description` | no | Shown to the customer on the hosted page. |
+| `customer.name`, `customer.email` | no | For your records and the hosted page. |
+| `expires_in_minutes` | no | 15 to 10080 (7 days). Default 60. |
+| `metadata` | no | Up to 20 of your own key/value pairs, returned on the charge and in webhooks. |
+
+| Asset | Networks |
+|---|---|
+| USDT | `trc20` (default), `bep20` |
+| USDC | `bep20` |
+| BTC | `bitcoin` |
+
+**Minimum charge:** currently ₦5,000 or $5. If `amount` is below it, the `amount_too_small` error message
+states the current minimum.
+
+## The quote
+
+```json
+"payment": {
+  "asset": "USDT",
+  "network": "trc20",
+  "address": "TEST-TRC20-9c2f4e1a7b3d5f6e8a0b",
+  "asset_amount": 22.5,
+  "fee_asset_amount": 2.5,
+  "rate_locked_until": "2026-09-28T12:15:00.000Z"
+}
+```
+
+- `asset_amount` is the **total** the customer sends: your price converted at the current rate, plus the
+  FirstFlip service fee (`fee_asset_amount`). You receive your full price.
+- The rate is locked for 15 minutes from creation (`rate_locked_until`).
+- Show `asset_amount` exactly. Customers must send at least this amount on the stated network. Sending on
+  the wrong network can lose the funds.
+
+## Showing the payment to your customer
+
+Either:
+
+- **Redirect** to `hosted_url`. It is our page, with the amount, the address and live status. This is the
+  least work and handles every edge case for you. Or:
+- **Render it yourself** from `payment.address`, `payment.asset_amount` and `payment.network`, then poll
+  `GET /v1/charges/:id` or wait for the webhook.
+
+## Finding charges
+
+`GET /v1/charges` returns newest first, 20 per page (up to 100 with `limit`). Filter by `status` or by
+your `reference`. For the next page, pass the last id you received as `starting_after`, and stop when
+`has_more` is `false`.
+
+To reconcile a period, add `created_from` (inclusive) and `created_before` (exclusive) — RFC 3339,
+a bare date meaning midnight UTC. `created_from=2026-11-04&created_before=2026-11-05` is exactly that
+UTC day, and consecutive windows never count a charge twice. A malformed instant is
+`400 invalid_parameter`.
+</guide>
+
+<a id="guide-payment-links"></a>
+<guide name="payment-links">
+# Payment links
+
+A **payment link** is one URL you can share anywhere: a WhatsApp status, an Instagram bio, an email, a
+printed QR on your counter. Every customer who opens it and presses **Continue** gets their own charge,
+so payments never mix and each one fires its own webhook.
+
+No website or checkout code needed. Create the link once, share it, and handle `charge.paid` (or check
+the charges list) as usual.
+
+## Quick hints
+
+Short points that matter more than the paragraphs below them.
+
+1. **One link is many charges.** Each customer who presses **Continue** gets their own charge and their own `charge.paid` — payments never mix, and one customer's short payment cannot block another.
+2. **Opening the link creates nothing.** A chat app fetching a preview burns no use and makes no charge; only **Continue** does.
+3. **`max_uses` counts presses, not payments.** A link capped at 100 can be exhausted by 100 people who never pay. Watch `uses` with `GET /v1/payment_links?active=true`.
+4. **`reference` and `customer` are not allowed** — they are per-customer fields on a per-customer-free object. Put your own tags in `metadata`; they land on every charge the link makes.
+5. **Share `url`, not `id`.** The `id` is for `deactivate` and for filtering charges.
+6. **An unpaid charge from a link expires in 60 minutes and the customer can simply open the link again.** No repair call, no new link.
+7. **`POST /v1/payment_links/:id/deactivate` stops the link at once** and leaves charges already created untouched — they still pay and still fire webhooks.
+8. **Attribute by `payment_link`.** It is a field on the charge and in `charge.paid`, so one filter answers "what did this link collect".
+9. **The money rules are the [charge](#guide-charges) rules** — major units, minimum, asset, network, fee on top. A link changes only who creates the charge.
+
+## Create
+
+```bash
+curl https://api.firstflip.ng/v1/payment_links \
+  -H "Authorization: Bearer $FIRSTFLIP_SECRET_KEY" \
+  -H "Idempotency-Key: $(uuidgen)" \
+  -H "Content-Type: application/json" \
+  -d '{ "amount": 8000, "currency": "NGN", "description": "Jollof tray", "max_uses": 100, "metadata": { "menu": "lunch" } }'
+```
+
+```json
+{
+  "id": "pl_test_7d2c1b0a9e8f6d5c4b3a2918",
+  "object": "payment_link",
+  "active": true,
+  "url": "https://api.firstflip.ng/v1/sandbox/l/5f2d8c1e9a7b4d3c6e0f1a2b3c4d5e6f",
+  "amount": 8000,
+  "currency": "NGN",
+  "max_uses": 100,
+  "uses": 0
+}
+```
+
+Share `url`.
+
+## What the customer sees
+
+1. Opening the link shows the price and a **Continue to payment** button. Opening it alone creates
+   nothing, so chat apps fetching a link preview don't create charges.
+2. **Continue** creates a charge for that customer and takes them to its payment page.
+3. When they pay, you get `charge.paid`. The charge's `payment_link` field says which link it came from,
+   and it carries the link's `metadata`.
+
+## One link, many charges
+
+A link is a template, not an order. Each customer who presses **Continue** gets their own charge, and the
+link only counts uses — that is why `reference` and `customer` are refused on a link.
+
+```mermaid
+flowchart LR
+  L["POST /v1/payment_links<br/>amount, currency, pay_asset, max_uses"] --> U["url returned<br/>active: true, uses: 0"]
+  U -->|"customer opens GET /v1/sandbox/l/:token"| O["Landing page<br/>price and Continue button — creates nothing"]
+  O -->|"customer presses Continue"| C1["Charge A created<br/>payment_link = this link"]
+  O -.->|"next customer, same url"| C2["Charge B created"]
+  O -.->|"and again"| C3["Charge C created"]
+  C1 --> P{"paid within 60 minutes?"}
+  C2 --> P
+  C3 --> P
+  P -->|"yes"| W["event charge.paid<br/>carries the link metadata"]
+  P -->|"no"| X["charge expired<br/>link itself stays usable"]
+  U -->|"uses reaches max_uses, or POST /v1/payment_links/:id/deactivate"| Z["active: false<br/>no new charges; existing charges unaffected"]
+```
+
+Opening the url is deliberately not the create step: a chat app that fetches the link to build a preview
+does not consume a `max_uses` slot.
+
+## Limits and control
+
+- `max_uses` stops the link after that many charges (counted when a customer presses Continue, whether or
+  not they pay). Omit it for an unlimited link.
+- `POST /v1/payment_links/:id/deactivate` stops a link at once. Charges already created are unaffected.
+- `GET /v1/payment_links?active=true` lists your live links, with `uses` so far. Add
+  `created_from` (inclusive) / `created_before` (exclusive) to read a period — RFC 3339, bare date
+  meaning midnight UTC, so consecutive windows never count a link twice.
+- Each charge from a link expires after 60 minutes if unpaid; the customer can open the link again.
+
+Amount, currency, asset, network, description and metadata follow the same rules as
+[charges](#guide-charges). `reference` and `customer` are not allowed on a link, because many customers pay it.
+
+## Find payments from a link
+
+```bash
+curl "https://api.firstflip.ng/v1/charges?status=paid&limit=100" -H "Authorization: Bearer $FIRSTFLIP_SECRET_KEY"
+```
+
+Filter the results on `payment_link`, or match `charge.paid` events by `data.object.payment_link`.
+</guide>
+
+<a id="guide-subaccounts"></a>
+<guide name="subaccounts">
+# Sub-accounts
+
+A **sub-account** is one of your own end-users, created under your business with your secret key — the
+tenant layer of the Business API. Use it to model your customers and their state (active or suspended)
+inside FirstFlip before you wire up live provisioning.
+
+A sub-account is a **sandbox identity**: it has no wallet, holds no balance and cannot receive real money.
+Every response says so in `sandbox`. Live provisioning — a real wallet, KYC and settlement per tenant —
+is not open yet; until then this endpoint is test mode only, and a live key gets
+`403 live_mode_unavailable`.
+
+## Quick hints
+
+Short points that matter more than the paragraphs below them.
+
+1. **A sub-account is a tenant record, not a wallet.** It holds no balance and receives no money — `sandbox.wallet_provisioned: false` and `accepts_real_money: false` say so on every response.
+2. **`reference` is your tenant id and it is unique inside your business.** A new `Idempotency-Key` with a `reference` you already used is `409 duplicate_reference`, never a silent second record. Omit it and the sub-account id is used.
+3. **The same key replays; a different body under that key is refused.** A retry returns the same sub-account with `Idempotent-Replayed: true`; changing the body is `422 idempotency_key_reused`.
+4. **`suspend` and `activate` are idempotent on purpose** — suspending an already suspended tenant returns it unchanged. Your sync job may re-run without a guard clause.
+5. **`status` is administrative.** It is your control over your own tenant list; it stops no money, because no money is involved yet.
+6. **`tier` is `0` and means nothing today.** Do not build pricing logic on it.
+7. **`metadata` values come back as strings**, even the numbers and booleans you sent — same 20-key rule as charges, stored up to 500 characters.
+8. **Build against the shape now.** Live provisioning adds a wallet and per-tenant KYC without changing this record shape, so nothing you write here gets thrown away.
+9. **Paging is your ownership boundary.** `starting_after` must be one of *your* sub-accounts or the API answers `400 invalid_parameter`; filter with `status` and a half-open `created_from`/`created_before` window.
+
+## The tenant tree and its two states
+
+Your key owns the tree; `reference` is the id you hold for a tenant, and `status` is the only switch in the
+record. Both states are drawn with the guards that decide whether a create becomes a record at all.
+
+```mermaid
+flowchart TD
+  M["Your business<br/>one test secret key"] -->|"POST /v1/subaccounts<br/>Idempotency-Key required"| T1["Sub-account sa_test_…<br/>status: active"]
+  M -->|"same call, new tenant"| T2["Sub-account …<br/>status: active"]
+  T1 -->|"POST /v1/subaccounts/:id/suspend"| S["status: suspended"]
+  S -->|"POST /v1/subaccounts/:id/activate"| T1
+  S -.->|"suspend again — already suspended"| S2["same record returned unchanged<br/>no guard clause needed"]
+  T1 -.->|"activate again — already active"| T1
+  M -->|"replay with the SAME key and body"| R["Idempotent-Replayed: true<br/>the original sub-account"]
+  M -->|"same key, different body"| E1["422 idempotency_key_reused"]
+  M -->|"new key, reference you already used"| E2["409 duplicate_reference"]
+  T1 -.->|"status is administrative: no wallet, no balance, accepts_real_money: false"| X["No money is stopped because none is here"]
+```
+
+Read `suspended` as your own flag inside FirstFlip, not as a rail switch. When live provisioning arrives the
+record shape is unchanged and `status` starts meaning something to the money path; until then it means
+something to *your* sync.
+
+## Create
+
+```bash
+curl https://api.firstflip.ng/v1/subaccounts \
+  -H "Authorization: Bearer $FIRSTFLIP_SECRET_KEY" \
+  -H "Idempotency-Key: $(uuidgen)" \
+  -H "Content-Type: application/json" \
+  -d '{ "name": "Ada's Store", "email": "ada@example.com", "reference": "tenant_1042", "metadata": { "plan": "starter" } }'
+```
+
+```json
+{
+  "id": "sa_test_2a3b4c5d6e7f80910a1b2c3d",
+  "object": "subaccount",
+  "livemode": false,
+  "reference": "tenant_1042",
+  "name": "Ada's Store",
+  "email": "ada@example.com",
+  "status": "active",
+  "tier": 0,
+  "metadata": { "plan": "starter" },
+  "sandbox": { "wallet_provisioned": false, "accepts_real_money": false },
+  "created_at": "2026-11-02T09:15:00.000Z",
+  "updated_at": "2026-11-02T09:15:00.000Z"
+}
+```
+
+| Field | Required | Notes |
+|---|---|---|
+| `name` | yes | Up to 100 characters. |
+| `email` | no | Must be a valid address, up to 254 characters. |
+| `reference` | no | An id from your system, up to 100 characters. Unique within your business; if you omit it, the sub-account id is used. |
+| `metadata` | no | Same rules as charges: at most 20 keys of 1–40 letters, digits, `_` or `-`; string, number or boolean values, stored as strings up to 500 characters. |
+
+`Idempotency-Key` is required. A retry with the **same** key returns the same sub-account
+(`Idempotent-Replayed: true`). A second create with a **new** key and a `reference` you already used is
+`409 duplicate_reference` — never a silent duplicate. Reusing a key with a different body is
+`422 idempotency_key_reused`.
+
+## Read them back
+
+```bash
+curl "https://api.firstflip.ng/v1/subaccounts?status=active&limit=20" -H "Authorization: Bearer $FIRSTFLIP_SECRET_KEY"
+curl https://api.firstflip.ng/v1/subaccounts/sa_test_2a3b4c5d6e7f80910a1b2c3d -H "Authorization: Bearer $FIRSTFLIP_SECRET_KEY"
+```
+
+Lists are newest first. `limit` is 1–100 (default 20); `has_more` says whether another page follows —
+pass the last `id` as `starting_after`. Filter with `status` (`active` or `suspended`) or an exact
+`reference`. `starting_after` must be one of your sub-accounts, or the API answers `400 invalid_parameter`.
+Add `created_from` (inclusive) / `created_before` (exclusive) to read a period — RFC 3339, a bare date
+meaning midnight UTC; consecutive windows never count a sub-account twice.
+
+## Suspend and activate
+
+```bash
+curl -X POST https://api.firstflip.ng/v1/subaccounts/sa_test_2a3b4c5d6e7f80910a1b2c3d/suspend \
+  -H "Authorization: Bearer $FIRSTFLIP_SECRET_KEY" \
+  -H "Idempotency-Key: $(uuidgen)"
+```
+
+`POST /v1/subaccounts/:id/activate` reverses it. Both moves are idempotent — suspending an already
+suspended sub-account returns it unchanged, so a retried request is never an error. `status` is your own
+control over your tenant; it changes nothing about money, because no money is involved.
+
+## Scopes and rate limits
+
+Creating and changing sub-accounts needs `subaccounts:write`; reading needs `subaccounts:read`. Keys
+minted before scopes existed carry every scope. Writes are limited to 60 per key per minute and reads to
+300 — the same limits as the rest of `/v1` (see [Idempotency & errors](#guide-idempotency-and-errors)).
+
+## Node.js SDK
+
+```js
+const sa = await firstflip.subaccounts.create({ name: "Ada's Store", reference: 'tenant_1042' });
+await firstflip.subaccounts.suspend(sa.id);
+await firstflip.subaccounts.activate(sa.id);
+
+for await (const tenant of firstflip.subaccounts.listAll({ status: 'active' })) console.log(tenant.id);
+```
+
+## What is not built yet
+
+A sub-account cannot hold a wallet or receive money, and there is no per-tenant KYC flow. Live
+provisioning arrives with the live rails; the record shape will not change (see
+[Going live](#guide-going-live)).
+</guide>
+
+<a id="guide-cards"></a>
+<guide name="cards">
+# Virtual cards
+
+`POST /v1/cards` issues a **sandbox USD card** to one of your customers: create it, put a balance on
+it, cap what it may spend, and run a simulated authorization through it to watch your limits fire.
+A test-mode card is test mode all the way down, and the object says so out loud — `livemode: false`,
+`sandbox.real_card: false`, `sandbox.funds_movable: false`. There is no issuer, no card network and
+no real merchant behind this surface: no PAN is ever generated, stored or returned, nothing settles,
+and **there is no step-up (no 3-D Secure) anywhere on it**.
+
+A **live** key is not refused this surface with one blanket answer. Cards are answered **leg by leg**,
+because the rails are not all missing at the same rate: listing, retrieval, freeze and unfreeze run
+live today, and the six legs that would move money, release money or read rows this platform does not
+hold answer `403 live_precondition_unmet` with the missing rail named in `error.param`. Only the
+sandbox simulator still answers `403 live_mode_unavailable`. No live leg moves money yet — see
+[Live legs](#live-legs).
+
+## Quick hints
+
+Short points that matter more than the paragraphs below them.
+
+- **One `Idempotency-Key` per logical operation.** A fresh UUID per operation; reuse it only to retry
+  *that* operation.
+- **A replay returns the original response, so retry freely.** Same key + same body = the first
+  answer again, with `Idempotent-Replayed: true`. Same key + different body = `422
+  idempotency_key_reused`.
+- **Never poll a card to find out whether a swipe was declined — read the response.** A declined
+  authorization is a `201`; the refusal lives in the body (`status`, `decline_code`).
+- **`201` versus `200` is not an accident.** The three writes that create a ledger row (`fund`,
+  `withdraw`, `simulate_authorization`) answer `201`; the four that only change the card's own state
+  (`freeze`, `unfreeze`, `close`, `spend_limits`) answer `200`. Treat both as success; never treat
+  `201` as "created a card".
+- **Every amount is dollars with at most 2 decimal places** — `balance`, `amount`, and each limit.
+- **A limit of `null` means no cap on that axis**, not zero and not "blocked". The three axes are
+  independent.
+- **Two ceilings are ours, not yours.** A key may hold **250 cards open** (the 251st create answers
+  `409 card_limit_reached`; closing one frees a slot), and your whole business may commit
+  **$1,000,000 of approved spend per rolling 30 days** across every card you hold (declined as
+  `over_tenant_monthly_limit`). Both are set far above what a sandbox integration uses; they exist so
+  the surface can be opened up without a surprise later.
+- **On `spend_limits`, omission is not the same as `null`.** Omit a key to leave that axis alone; send
+  it as `null` to clear it.
+- **A frozen card still takes money and still answers reads**: `fund` works, and an authorization is
+  *declined in-body* with `card_frozen`. A `withdraw` from it is the one call the contract refuses
+  outright (`409 card_not_active`).
+- **`closed` is terminal.** Nothing reopens it — `unfreeze` tells you so ("Issue a new one.").
+- **Store the card `id` when you create it.** The ledger is addressed by card
+  (`GET /v1/cards/:id/transactions`); `GET /v1/cards` pages newest-first and does not filter by your
+  `reference`.
+- **`number_last4`, `expiry_month` and `expiry_year` are display furniture.** No card number exists,
+  so never build a checkout form around them and never send them to a merchant.
+- **Currency is `USD` and only `USD`.** Anything else is `400 invalid_parameter`.
+- **A live key is answered per leg, not per surface.** `list`, `get`, `freeze` and `unfreeze` run
+  live; the six money legs answer `403 live_precondition_unmet` and name the rail in `error.param`;
+  only the simulator still answers `403 live_mode_unavailable`. The table is in
+  [Live legs](#live-legs).
+- **`limits` in the response is the resulting state**, so one `spend_limits` call tells you all three
+  axes at once.
+- **Every card route has a typed client method.** `firstflip.cards.*` covers all 11 (see
+  [Node.js SDK](#nodejs-sdk)); REST and the agent tools are the same contract underneath.
+
+## The lifecycle
+
+```mermaid
+stateDiagram-v2
+    direction LR
+    [*] --> active: POST /v1/cards
+    active --> active: fund · withdraw · spend_limits · simulate_authorization
+    active --> frozen: freeze
+    frozen --> frozen: fund · simulate_authorization (always declined)
+    frozen --> active: unfreeze
+    active --> closed: close
+    frozen --> closed: close
+    closed --> [*]: terminal — issue a new card
+```
+
+What each state means for the call you are about to make:
+
+| From | `fund` | `withdraw` | `simulate_authorization` | `freeze` / `unfreeze` | `spend_limits` | `close` |
+|---|---|---|---|---|---|---|
+| `active` | `201` | `201` (or `400 insufficient_balance`) | `201` — approved **or** declined | `200` | `200` | `200` |
+| `frozen` | `201` | `409 card_not_active` | `201` with `decline_code: card_frozen` | `freeze` is what got you here; `unfreeze` → `active` (`200`) | the contract names no refusal | `200` |
+| `closed` | `409 card_closed` ("Nothing moved.") | `409 card_closed` | `409 card_closed` | `unfreeze` → `409 card_closed` ("cannot be reopened. Issue a new one.") | the contract names no refusal | — |
+
+Only `active → frozen → active` and `… → closed` are drawn above, because those are the moves the
+contract defines. A read (`GET /v1/cards/:id`, `GET /v1/cards/:id/transactions`) works in every state.
+
+## How a call travels, and where the sandbox stops
+
+This is the whole path from your customer-facing screen to a FirstFlip event — and the leg that does
+not exist, drawn as the dashed gap it is.
+
+```mermaid
+flowchart TD
+    U["Your customer-facing user<br/>(an app screen, a widget, a support desk)"]
+    A["Your app / backend<br/>holds no card secrets of FirstFlip's"]
+    P["Your business control panel<br/>issue · fund · freeze · close · set limits"]
+    K["FirstFlip API key<br/>ffk_test_… · cards:read / cards:write<br/>/v1/cards"]
+    R["FirstFlip API<br/>authenticate key → check scope → claim the Idempotency-Key"]
+    L["Limit guards<br/>frozen? per-transaction? daily? monthly? balance?"]
+    D[("Card record + card ledger<br/>one transaction: write the row, $inc the balance")]
+    W["Signed webhook<br/>card.created · card.frozen · card.limits.updated ·<br/>card.authorization.approved / .declined"]
+    X["Your webhook receiver<br/>verify FirstFlip-Signature over the raw body"]
+
+    U -->|"asks for a card / a top-up / a freeze"| P
+    P -->|"server-to-server HTTPS call"| A
+    A -->|"Authorization: Bearer + Idempotency-Key"| K
+    K --> R
+    R -->|"replay of a claimed key"| RR["Original response, replayed<br/>Idempotent-Replayed: true"]
+    R -->|"new key"| L
+    L -->|"passes"| D
+    L -->|"refuses"| DN["201 with status: declined<br/>+ decline_code · balance untouched · row still written"]
+    D -->|"balance and status updated"| RES["2xx JSON: card or card_transaction"]
+    D --> W
+    W --> X
+
+    ISSUER["Card issuer · card network · merchant · settlement · 3-D Secure step-up"]
+    RES -.->|"NOT IN SANDBOX: none of this exists behind /v1/cards"| ISSUER
+    ISSUER -.->|"no PAN is ever issued, stored or returned"| K
+```
+
+Read the dashed edges as the honest boundary: your side of the flow is real and complete, and every
+outcome you can observe comes from the balance, the limits and the state on FirstFlip's side. Nothing
+here can reach a merchant.
+
+## Live legs
+
+Cards are the one `/v1` surface that answers a live key **leg by leg** instead of with one blanket
+refusal. The reason is that the rails are not all missing at the same rate: freeze and unfreeze are
+the issuer's own verbs and reach it through the card's issuer record, while the money legs wait on
+rails this platform has not built. A leg that is refused names its missing rail in `error.param`, so
+your code branches on one code (`live_precondition_unmet`) and reads the decision that is missing —
+it never parses prose, and it never has to guess whether a "no" was an incident.
+
+| The eleven routes | What a **live** key gets today |
+|---|---|
+| `GET /v1/cards` | `200` — your live cards, and only those. Every row answers `livemode: true` with `sandbox: null`; a live page never contains a test card |
+| `GET /v1/cards/{id}` | `200` as above. A card from the other mode is `404 resource_missing`, byte-for-byte the answer for a card that does not exist |
+| `POST /v1/cards/{id}/freeze` | Runs live, **issuer first**: the provider is asked to freeze, and our record follows only if it agrees. A refusing issuer answers `503 service_unavailable` and the card stays `active` |
+| `POST /v1/cards/{id}/unfreeze` | Runs live with the same ordering. A refusing issuer answers `503 service_unavailable` and the card stays `frozen` |
+| `POST /v1/cards` | `403 live_precondition_unmet`, `param: cardholder` — a real card needs a cardholder the issuer has verified, and this API stores only the name and email you send it. No card is minted |
+| `POST /v1/cards/{id}/fund` | `403 live_precondition_unmet`, `param: funding` — there is no tenant USD balance here to top a card up from. Refused before your amount is read |
+| `POST /v1/cards/{id}/withdraw` | `403 live_precondition_unmet`, `param: withdrawal` — the leg that releases money back to you is not verified against the issuer |
+| `POST /v1/cards/{id}/close` | `403 live_precondition_unmet`, `param: settlement` — a close returns the balance into a wallet, and that leg is not built. Nothing is terminated, on either side |
+| `POST /v1/cards/{id}/spend_limits` | `403 live_precondition_unmet`, `param: limit_format` — the issuer has rejected every amount format tried on that call, and a ceiling in the wrong unit is worse than none, so it is not written our-side-only |
+| `GET /v1/cards/{id}/transactions` | `403 live_precondition_unmet`, `param: transaction_sync` — the issuer's rows are not synced here yet, and an empty list would be a guess |
+| `POST /v1/cards/{id}/simulate_authorization` | `403 live_mode_unavailable` — and this leg stays that way: a live authorization is decided by the issuer, so there is nothing for this API to simulate |
+
+Two things worth reading twice:
+
+- **`param: provider` is about your card, not a rail.** A live card row that carries no issuer id (or
+  an issuer this server has no card code for) is refused rather than half-acted on. Live issuing is
+  what puts that id on the row, so this arrives only for a row created before it opened.
+- **A live refusal is a final response, so your `Idempotency-Key` replays it.** Resending the same key
+  with the same body returns the same refusal. A new operation needs a new key.
+
+None of this moves money. The money legs are refused *before* any balance is read, so a live card has
+no path from this API to a debit — which is also why the ceilings below still apply only to test-mode
+spend today.
+
+## Who else can touch a card
+
+Three ends, three permission models — and only one of them is yours.
+
+```mermaid
+flowchart LR
+    subgraph YOU["Your side"]
+        E["Your end users<br/>your app screens<br/>never hold a FirstFlip key"]
+        P["Your control panel<br/>issue · fund · freeze · close · limits<br/>your own backend"]
+        K["Your API key<br/>cards:read / cards:write"]
+    end
+    subgraph FFSIDE["FirstFlip's own surfaces"]
+        M["The consumer app<br/>cards FirstFlip customers buy"]
+        D["The staff desk<br/>tiered roles · every card action audit-logged<br/>a dispute credit needs a second approver"]
+    end
+    API["FirstFlip API<br/>/v1/cards"]
+    L[("Sandbox card store<br/>the card rows and their ledger")]
+
+    E -->|"what you choose to expose"| P
+    P -->|"server-to-server HTTPS"| K
+    K -->|"Bearer key + Idempotency-Key"| API
+    API -->|"the only reader and writer"| L
+    M -.->|"different card store"| L
+    D -.->|"different card store"| L
+```
+
+| Surface | Can act on a card you issued through `/v1/cards`? | Why |
+|---|---|---|
+| Your end users, through your app | only as far as you let them | they never see a key; your backend makes the call |
+| Your panel's backend | yes — this is the intended path | one `cards:write` key, one scope per call |
+| A FirstFlip staff member | no | the staff desk reads a different card store |
+| A FirstFlip customer in the app | no | same reason |
+
+The last two rows are structural, not policy. Outside the tests, the sandbox card rows and their ledger
+are read and written by exactly two things: the `/v1` card endpoints and the one ledger helper they share.
+No mobile surface, staff surface, dispute desk or scheduled job in FirstFlip's server touches that store,
+so a balance you created with a key cannot be moved by anyone who does not have that key.
+
+Two consequences worth knowing before you build on it:
+
+- **Your key is the panel.** There is no FirstFlip screen where an agent — yours or ours — unfreezes a
+  sandbox card for you. If a card is stuck, the fix is a call with `cards:write`, and a support ticket ends
+  with someone telling you which call to make.
+- **Nothing reconciles it behind your back.** The hourly issuer-vs-FirstFlip reconciliation exists for cards
+  that sit on a real rail. A sandbox card has no rail, so its balance has nothing to disagree with — and
+  nothing that re-sums it on a schedule either. Your own `GET /v1/cards/:id/transactions` is the audit.
+
+**Quick points**
+
+- Ask *"can FirstFlip staff do this for me?"* before opening a ticket. For `/v1/cards` the answer is no by
+  construction, and the API call is the only door.
+- Treat `cards:write` as money code. It is the whole authority: whoever holds it *is* the panel.
+- If you need a human in the loop, build it on your side — a queue, an approval, a step-up. FirstFlip's
+  approval machinery guards its own rails, not your sandbox ledger.
+
+## Issue a card
+
+```bash
+curl https://api.firstflip.ng/v1/cards \
+  -H "Authorization: Bearer $FIRSTFLIP_SECRET_KEY" \
+  -H "Idempotency-Key: $(uuidgen)" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "customer": { "first_name": "Ada", "last_name": "Obi", "email": "ada@example.com" },
+        "reference": "employee_1042",
+        "limits": { "per_transaction": 150, "daily": 500 },
+        "metadata": { "programme": "team-cards" }
+      }'
+```
+
+```json
+{
+  "id": "card_test_0a1b2c3d4e5f60718293a4b5",
+  "object": "card",
+  "livemode": false,
+  "reference": "employee_1042",
+  "status": "active",
+  "currency": "USD",
+  "balance": 0,
+  "number_last4": "0817",
+  "expiry_month": 8,
+  "expiry_year": 2029,
+  "limits": { "daily": 500, "per_transaction": 150, "monthly": null },
+  "frozen_reason": null,
+  "closed_reason": null,
+  "created_at": "2026-11-09T10:30:00.000Z",
+  "updated_at": "2026-11-09T10:30:00.000Z",
+  "sandbox": { "real_card": false, "funds_movable": false }
+}
+```
+
+`customer` (`first_name`, `last_name`, `email`) is required. `reference` and `metadata` are yours. A
+`limits` axis you omit starts uncapped (`null`). This is `201` — the only card call where `201` means
+"a card was created". Emits `card.created`.
+
+```bash
+curl https://api.firstflip.ng/v1/cards \
+  -H "Authorization: Bearer $FIRSTFLIP_SECRET_KEY"
+```
+
+answers `{ "object": "list", "data": [ …cards… ], "has_more": false }`, newest first; page it with
+`limit` (1–100, default 20) and `starting_after`.
+
+## Move the balance
+
+```bash
+curl -X POST https://api.firstflip.ng/v1/cards/card_test_0a1b2c3d4e5f60718293a4b5/fund \
+  -H "Authorization: Bearer $FIRSTFLIP_SECRET_KEY" \
+  -H "Idempotency-Key: $(uuidgen)" \
+  -H "Content-Type: application/json" \
+  -d '{ "amount": 250, "reference": "topup_1042" }'
+```
+
+```json
+{
+  "id": "ctxn_test_1b2c3d4e5f60718293a4b5c6",
+  "object": "card_transaction",
+  "livemode": false,
+  "card_id": "card_test_0a1b2c3d4e5f60718293a4b5",
+  "reference": "topup_1042",
+  "type": "topup",
+  "status": "approved",
+  "currency": "USD",
+  "amount": 250,
+  "balance_before": 0,
+  "balance_after": 250,
+  "merchant": null,
+  "decline_code": null,
+  "created_at": "2026-11-09T10:31:00.000Z",
+  "sandbox": { "settled": false }
+}
+```
+
+`withdraw` is the mirror image (`type: "withdrawal"`, `amount` off the balance). Both create a ledger
+row, so both answer `201`.
+
+| You ask for | On an `active` card | On a `frozen` card | On a `closed` card |
+|---|---|---|---|
+| `fund` of more than you have | `201` — the ceiling FirstFlip sets is on **spend**, so a top-up above it still lands | `201` | `409 card_closed` |
+| `withdraw` of more than `balance` | `400 insufficient_balance` (`param: amount`) | `409 card_not_active` | `409 card_closed` |
+| `withdraw` you can cover | `201` | `409 card_not_active` ("Unfreeze it first.") | `409 card_closed` |
+
+`sandbox.funds_movable: false` on the card and `sandbox.settled: false` on the row are the contract
+saying what this is: a balance FirstFlip increments for you, not money that can leave.
+
+## Cap what it can spend
+
+```bash
+curl -X POST https://api.firstflip.ng/v1/cards/card_test_0a1b2c3d4e5f60718293a4b5/spend_limits \
+  -H "Authorization: Bearer $FIRSTFLIP_SECRET_KEY" \
+  -H "Idempotency-Key: $(uuidgen)" \
+  -H "Content-Type: application/json" \
+  -d '{ "daily_limit": 1000, "monthly_limit": null }'
+```
+
+`200` with the whole card, whose `limits` is the resulting state
+(`{ "daily": 1000, "per_transaction": 150, "monthly": null }` above — `per_transaction` untouched).
+Send one key or all three. `null` **clears** an axis; omission **leaves** it. Emits
+`card.limits.updated`.
+
+### What FirstFlip caps on top of your axes
+
+Those three axes are yours and nothing clamps them — you can set `daily_limit` to any positive number.
+What is not yours is the pair of platform ceilings, and they are the reason an integration can be
+opened up before anyone has asked for limits of their own:
+
+| Ceiling | What it counts | What happens when it is full |
+|---|---|---|
+| **250 open cards per key** | cards this credential issued that are not `closed` | the create is refused with `409 card_limit_reached` (`param: cards`), and nothing is written. Closing a card frees a slot; a retry of a create you already own is not counted again |
+| **$1,000,000 of approved spend per business per rolling 30 days** | every approved authorization on every card the business holds in that mode — a second key of the same mode draws on the same bucket | the authorization is `201` with `decline_code: over_tenant_monthly_limit`, and no money moves |
+
+The ceiling is on **spend**, so funding a card above it still lands — a sandbox you cannot top up is not
+a sandbox. And because it is summed across your cards, splitting spend between two cards, or between two
+keys of the same mode, does not multiply it. Test and live keep separate buckets, as every FirstFlip
+namespace does; today only test-mode cards exist, so there is one bucket.
+
+## Stop a card, then decide
+
+```bash
+curl -X POST https://api.firstflip.ng/v1/cards/card_test_0a1b2c3d4e5f60718293a4b5/freeze \
+  -H "Authorization: Bearer $FIRSTFLIP_SECRET_KEY" \
+  -H "Idempotency-Key: $(uuidgen)" \
+  -H "Content-Type: application/json" \
+  -d '{ "reason": "card_reported_lost" }'
+```
+
+`200` with `"status": "frozen"` and `"frozen_reason": "card_reported_lost"`. A frozen card declines
+authorizations and refuses withdrawals, but it can still be funded, read and unfrozen.
+
+```bash
+curl -X POST https://api.firstflip.ng/v1/cards/card_test_0a1b2c3d4e5f60718293a4b5/unfreeze \
+  -H "Authorization: Bearer $FIRSTFLIP_SECRET_KEY" \
+  -H "Idempotency-Key: $(uuidgen)"
+```
+
+`200`, back to `active`, `frozen_reason` cleared — unless the card is `closed`, which is
+`409 card_closed`: *"This card is closed and cannot be reopened. Issue a new one."*
+
+`close` is the same shape with an optional `reason` and answers `200` with `"status": "closed"`.
+Freeze and close are the calls you would use from a support desk or a risk rule; both emit an event
+(`card.frozen`, `card.unfrozen`, `card.closed`).
+
+## Simulate a swipe
+
+```bash
+curl -X POST https://api.firstflip.ng/v1/cards/card_test_0a1b2c3d4e5f60718293a4b5/simulate_authorization \
+  -H "Authorization: Bearer $FIRSTFLIP_SECRET_KEY" \
+  -H "Idempotency-Key: $(uuidgen)" \
+  -H "Content-Type: application/json" \
+  -d '{ "amount": 200, "merchant": "Office Depot" }'
+```
+
+```json
+{
+  "id": "ctxn_test_4e5f60718293a4b5c6d7e8f9",
+  "object": "card_transaction",
+  "livemode": false,
+  "card_id": "card_test_0a1b2c3d4e5f60718293a4b5",
+  "reference": null,
+  "type": "authorization",
+  "status": "declined",
+  "currency": "USD",
+  "amount": 200,
+  "balance_before": 250,
+  "balance_after": 250,
+  "merchant": "Office Depot",
+  "decline_code": "over_per_transaction_limit",
+  "created_at": "2026-11-09T11:11:00.000Z",
+  "sandbox": { "settled": false }
+}
+```
+
+**That refusal is a `201`.** The card said no, the HTTP layer said the call worked, and the ledger kept
+the row — `balance_before` equals `balance_after`, because a decline moves nothing. This is the single
+most important shape difference on this resource: branch on `status`, never on the status code.
+
+## Read the ledger
+
+```bash
+curl https://api.firstflip.ng/v1/cards/card_test_0a1b2c3d4e5f60718293a4b5/transactions \
+  -H "Authorization: Bearer $FIRSTFLIP_SECRET_KEY"
+```
+
+`{ "object": "list", "data": [ …card_transaction… ], "has_more": false }`, newest first. Every
+`topup`, `withdrawal` and `authorization` is a row here, **including the declined ones** — which makes
+this the reconciliation view for a limit change you suspect bit a customer mid-checkout.
+
+## Error and decline folds
+
+Two different tables, because there are two different places a "no" arrives.
+
+### HTTP errors this resource can answer
+
+| Status | `code` | Retryable | What to do |
+|---|---|---|---|
+| 400 | `invalid_json` | no | Send valid JSON with `Content-Type: application/json` |
+| 400 | `invalid_parameter` | no | Fix the field named in `param` — a currency other than `USD`, an amount that is not dollars with at most 2 decimals, a limit that is not a positive number, an empty `spend_limits` body |
+| 400 | `insufficient_balance` | no | Cards only, on `withdraw`: `amount` is above `balance`. Nothing moved; re-read the card rather than guessing |
+| 400 | `idempotency_key_required` | no | Add the `Idempotency-Key` header — every card POST needs one |
+| 401 | `invalid_api_key` | no | The key is missing, malformed or revoked |
+| 401 | `key_expired` | no | This key reached its expiry date. Create a new one — see [Authentication](#guide-authentication) |
+| 403 | `insufficient_scope` | no | Mint a key carrying `cards:read` or `cards:write`; scopes are never widened in place |
+| 403 | `live_mode_unavailable` | no | Only the simulator still answers this: a live authorization is decided by the issuer, so there is nothing to simulate. Use `ffk_test_…` for that leg |
+| 403 | `live_precondition_unmet` | no | A live leg waiting on a rail we have not built; `param` names it — see [Live legs](#live-legs). Nothing moved |
+| 403 | `ip_not_allowed` · `business_inactive` · `api_access_paused` | no | The key's allow-list, or a decision made above your key by FirstFlip — see [Authentication](#guide-authentication) |
+| 404 | `resource_missing` | no | That card id does not exist **for this key**. Another business's id looks identical to a typo |
+| 409 | `card_closed` | no | Terminal. Issue a new card; there is no unfreeze path out of `closed` |
+| 409 | `card_not_active` | no | The card is frozen; `unfreeze` it before withdrawing |
+| 409 | `card_limit_reached` | no | This key holds its **250 open cards** (`param: cards`). Close one — a closed card frees its slot — then issue again |
+| 409 | `duplicate_reference` | no | Rare, and it means a race: a concurrent request with your `Idempotency-Key` won the create and the row is not readable yet. Fetch the card list rather than replaying the key |
+| 409 | `idempotency_in_progress` | **yes** | Your first request with this key is still running. Wait, retry with the **same** key |
+| 413 | `body_too_large` | no | Card bodies are small; something is wrong with what you sent |
+| 422 | `idempotency_key_reused` | no | Same key, different body. New operation → new key |
+| 429 | `rate_limited` | **yes** | Slow down; wait `Retry-After` seconds |
+| 500 | `internal_error` | **yes** | Retry with the same key; quote `Request-Id` if it persists |
+| 503 | `service_unavailable` | **yes** | Briefly unavailable; retry with the same key after `Retry-After` |
+
+Full catalogue and header detail: [Idempotency and errors](#guide-idempotency-and-errors).
+
+### In-body decline codes (arriving on a 201)
+
+A `simulate_authorization` the card refuses is **not** an error: it is `201` with
+`status: "declined"` and one of these in `decline_code`. **Read `status` and `decline_code` from the
+body — never infer a decline from the HTTP status.** In decision order, first match wins:
+
+| `decline_code` | Why the guard said no | What to do |
+|---|---|---|
+| `card_frozen` | The card is frozen | Nothing to fix on the amount; unfreeze it, or tell the customer it is blocked |
+| `over_per_transaction_limit` | This one amount is above `limits.per_transaction` | Lower the amount or raise that axis with `spend_limits` |
+| `over_daily_limit` | This amount would put today's spend above `limits.daily` | Wait for the day to roll, or raise `daily_limit` |
+| `over_monthly_limit` | This amount would put the month's spend above `limits.monthly` | Wait for the month to roll, or raise `monthly_limit` |
+| `over_tenant_monthly_limit` | This amount would put your **business's** rolling 30-day approved spend above $1,000,000, across every card you hold | Not yours to raise, and no single card caused it. Wait for the window to roll, or ask us |
+| `insufficient_funds` | The balance does not cover the amount | `fund` the card |
+
+A decline still writes a row, and `balance_before` equals `balance_after`. Your retry logic must
+therefore key off the row, not off "did the call fail" — and a webhook (`card.authorization.declined`)
+arrives for it just like an approval.
+
+## Sandbox → live: the key structure
+
+Cards inherit the platform's key model exactly. What is not the same as elsewhere is the *shape* of the
+live answer: cards are opened leg by leg, so a live key is neither fully refused nor fully enabled.
+
+| | `ffk_test_…` (today) | `ffk_live_…` (legs, not a switch) |
+|---|---|---|
+| Resolves to | your business, test data | your business, live data — a key can never read the other mode's objects |
+| At rest | only a **SHA-256 hash** of the key is stored; the value is shown once and cannot be recovered by anyone, FirstFlip included | same |
+| Scopes | chosen **at creation**, checked per endpoint (`cards:read` / `cards:write`), and **never widened in place** — rotate the key to change access | same |
+| Expiry | a key may carry an `expires_at`; past it every route, cards included, answers `401 key_expired`. Rotation keeps an overlap window so a cut-over is not an outage — see [Authentication](#guide-authentication) | same rule |
+| Rate bucket | its own per-key counters: 60 writes / 300 reads per minute, plus the per-IP backstop | same buckets |
+| On `/v1/cards` | works end to end | **per leg.** `list`, `get`, `freeze` and `unfreeze` run. The six money legs answer `403 live_precondition_unmet` with the rail in `param`; only `simulate_authorization` still answers `403 live_mode_unavailable`. The guard is no longer one `requireTest` step on all 11 routes, so ordering matters: the scope check answers `403 insufficient_scope` first, and a `POST` with no `Idempotency-Key` answers `400 idempotency_key_required` first |
+
+Four things have to exist before a live card key can issue and spend, and each is a decision rather
+than a flag:
+
+1. **A cardholder rail** the issuer accepts, so `POST /v1/cards` has a verified identity to register.
+   This API records only the name and email you send it, which is not that.
+2. **A funding and withdrawal rail**: a tenant USD balance this API may move money from, and a
+   withdrawal leg verified against the issuer. Until then `sandbox.funds_movable` stays `false` in
+   test mode, and the live legs are refused before your amount is read.
+3. **Settlement on close**, so a terminated card returns its balance somewhere real.
+4. **A limit format the issuer accepts**, and **transaction sync** so the issuer's rows are readable
+   here instead of guessed at.
+
+Real PAN custody and a step-up ceremony (3-D Secure) sit behind those, not beside them: no PAN exists
+on this surface today, so there is nothing to protect, and **there is no step-up anywhere on it** —
+budget both as new integration work when live issuing opens, not as something you can pre-wire.
+
+So a developer can decide in one line:
+
+- Building against cards today → use `ffk_test_…` with `cards:read` + `cards:write`. Everything in this
+  guide works.
+- Planning a live card launch → your `/v1/cards` calls keep their shape, and four of the eleven legs
+  already answer live. Plan for real PAN custody rules and a step-up flow as **new** integration work,
+  and branch on `error.param` rather than assuming a rail will appear. Do not build a production card
+  programme on the sandbox balance, and do not tell your customers these cards can spend anywhere.
+- Holding a live key today → you can already list, retrieve, freeze and unfreeze live cards, and nothing
+  else. The refused legs answer `403 live_precondition_unmet` before touching a balance; the simulator
+  answers `403 live_mode_unavailable`. A key with no card scope (and no scope list at all, which means
+  every scope) is what decides whether you reach that leg or `403 insufficient_scope` first. One
+  consequence worth knowing: a refusal is a final response, so it is cached against your
+  `Idempotency-Key` and replayed — that key stays burned **inside live mode**. The same string is still
+  free in test mode, because the idempotency scope is your account plus the mode.
+
+## Retry safely
+
+Every card POST requires an `Idempotency-Key`, and the layer behaves the way it does everywhere else on
+`/v1`:
+
+- Same key + same body → the original `201` (or `200`) answer again, `Idempotent-Replayed: true`.
+  Fund a card twice with one key and the balance moves **once**.
+- Same key + a different body → `422 idempotency_key_reused`, and nothing happens.
+- Same key while the first request is still running → `409 idempotency_in_progress`, retryable.
+- A `5xx` releases the key, so the same key can be retried and the operation runs again.
+
+Use one key per **logical operation** (`fund-invoice-1042`, not one key per process) and generate it
+before you send, not after. Keys live 24 hours. A declined authorization replayed under the same key
+replays the same decline; under a fresh key it is a second row on the ledger. Details:
+[Idempotency and errors](#guide-idempotency-and-errors).
+
+## Scopes and rate limits
+
+| Scope | Routes |
+|---|---|
+| `cards:read` | `GET /v1/cards`, `GET /v1/cards/:id`, `GET /v1/cards/:id/transactions` |
+| `cards:write` | `POST /v1/cards` and the seven writes on `/v1/cards/:id/…` |
+
+A key without the scope is `403 insufficient_scope`, which names the scope it wanted. **A key with an
+empty scope list is not a key with no scopes** — it carries every scope its mode allows. That default
+exists for keys minted before scopes did; check any old key before you ship it and re-mint it least-
+privilege rather than assuming it is narrow. In practice: a reconciliation job needs `cards:read` only; a
+support desk that freezes cards needs `cards:write` and no read of anything else. Rate limits are the `/v1` shape, per key per minute:
+**60 writes**, **300 reads**, with a per-IP backstop of **1,200 requests** on one address. `429` carries
+`Retry-After`; authenticated responses carry `X-RateLimit-Limit` and `X-RateLimit-Remaining`. Card
+writes are cheap (one row, one `$inc`), so a burst of simulated authorizations is the usual way to trip
+the write bucket — page your ledger with reads instead.
+
+## Webhooks
+
+Cards emit nine events to your registered **test** endpoints: `card.created`, `card.funded`,
+`card.withdrawn`, `card.frozen`, `card.unfrozen`, `card.closed`, `card.limits.updated`,
+`card.authorization.approved` and `card.authorization.declined`. The two money events carry the
+`card_transaction`, so `amount` and `balance_after` arrive in the delivery. Verify
+`FirstFlip-Signature` over the raw body and deduplicate on
+`FirstFlip-Event-Id` exactly as for every other event — see [Webhooks](#guide-webhooks). A decline is
+delivered as an event, so a well-wired webhook means you never poll `/transactions` to learn that a
+limit fired.
+
+## Node.js SDK
+
+`@firstflip/node` (`sdks/node/`) has a typed method for every card route, so `firstflip.cards.*` is the
+shortest path — it sends the `Idempotency-Key`, retries the retryable codes, and returns the same payloads
+this page documents. The raw calls below are what that client puts on the wire, which is why they are worth
+reading once (see [AI agents](#guide-agents) for the generated tools, same contract).
+
+```js
+const FirstFlip = require('@firstflip/node');
+const firstflip = new FirstFlip(process.env.FIRSTFLIP_SECRET_KEY);
+
+const card = await firstflip.cards.create({
+  customer: { first_name: 'Ada', last_name: 'Obi', email: 'ada@example.com' },
+  reference: 'employee_1042',
+  per_transaction_limit: 150,
+  daily_limit: 500,
+});
+await firstflip.cards.fund(card.id, { amount: 250 });
+const swipe = await firstflip.cards.simulateAuthorization(card.id, { amount: 200, merchant: 'Office Depot' });
+console.log(swipe.status, swipe.decline_code); // a decline is a 201 — branch on the body
+```
+
+The rest of this page is the same surface over raw HTTP, which is what the client is doing underneath:
+
+```js
+const BASE = 'https://api.firstflip.ng/v1';
+const headers = (idempotencyKey, withJson = false) => ({
+  Authorization: `Bearer ${process.env.FIRSTFLIP_SECRET_KEY}`, // ffk_test_…
+  ...(idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : {}),
+  ...(withJson ? { 'Content-Type': 'application/json' } : {}),
+});
+
+// The three limit axes are flat fields on the create body — `limits` is what the response shows you, not
+// what you send. FirstFlip's own two ceilings are not body fields at all: you cannot raise or lower them.
+// Anything outside these fields is `400 invalid_parameter`.
+const card = await fetch(`${BASE}/cards`, {
+  method: 'POST',
+  headers: headers('issue-card-for-1042', true),
+  body: JSON.stringify({
+    customer: { first_name: 'Ada', last_name: 'Obi', email: 'ada@example.com' },
+    reference: 'employee_1042',
+    per_transaction_limit: 150,
+    daily_limit: 500,
+  }),
+}).then((r) => r.json());
+
+// `fund` and `withdraw` take `amount` and nothing else; the ledger row is keyed by the card and this request.
+await fetch(`${BASE}/cards/${card.id}/fund`, {
+  method: 'POST',
+  headers: headers('fund-card-1042-first-tranche', true),
+  body: JSON.stringify({ amount: 250 }),
+}).then((r) => r.json());
+
+const auth = await fetch(`${BASE}/cards/${card.id}/simulate_authorization`, {
+  method: 'POST',
+  headers: headers('swipe-1042-0001', true),
+  body: JSON.stringify({ amount: 200, merchant: 'Office Depot' }),
+}).then((r) => r.json());
+
+// A decline is a 201 — branch on the body.
+console.log(auth.status, auth.decline_code); // declined over_per_transaction_limit
+```
+
+One `fetch` wrapper is enough: every card route takes the same headers, and the only per-route decision
+is whether you send a body.
+</guide>
+
+<a id="guide-payouts"></a>
+<guide name="payouts">
+# Payouts (test mode)
+
+`POST /v1/transfers` records one **test** transfer to a beneficiary abroad or a mobile wallet.
+`POST /v1/transfers/bulk` records 1–50 of them in a single call — the bulk-payout shape. Nothing is
+sent and no fee is quoted: the response always carries `sandbox.funds_sent: false` and `fee: null`.
+Live payout rails are not open yet, and a live key gets `403 live_mode_unavailable`.
+
+## Quick hints
+
+Short points that matter more than the paragraphs below them.
+
+1. **Nothing moves here.** Every response says `sandbox.funds_sent: false` and `fee: null`, and a live key is refused before your body is read. Build the shape, rehearse the callback, expect `403` on the way to live.
+2. **A batch's `status: completed` means the records were created.** Every payout inside it still starts at `new` and must be simulated one by one.
+3. **Never send `reference` per item.** FirstFlip generates `<batch id>:<index>`; a per-item reference is `400 invalid_parameter`.
+4. **The corridor decides the required fields, not the type alone.** `USD`/`EUR`/`GBP` each need their own `beneficiary` block, `UG` `bank_account` adds `destination_branch_code`, `ZA` adds `email`, `recipient_address` and a `+27` mobile number.
+5. **Precision is per currency.** `XOF`, `XAF`, `UGX` and `RWF` are whole numbers only; fiat takes 2 decimals; stablecoins take up to 6 (`25.0000001` is refused).
+6. **A transfer leaves `new`/`pending` once.** Asking for a status it already has is `409 transfer_not_pending` — so drive your state machine from `transfer.pending` / `.successful` / `.failed` [events](#guide-webhooks), not from a second simulate call.
+7. **One `Idempotency-Key` for the whole batch.** After a timeout, retry with the same key and you get the same batch back; a fresh key with the same body creates a second run.
+8. **A stablecoin transfer is never cross-converted.** `debit_currency` may name a fiat wallet (`NGN`, `USD`, `GBP`, `EUR`, `GHS`) or the same stablecoin, nothing else.
+9. **You never see the full destination.** Only `beneficiary.account_last4` is echoed — keep your own copy if you need it.
+10. **Reconcile with a half-open window.** `created_from` is inclusive, `created_before` exclusive, and `starting_after` paging holds even though a bulk batch writes all its rows in one instant.
+
+## How a payout moves
+
+`Transfer.status` has exactly four values — `new`, `pending`, `successful`, `failed` — and a batch has two of
+its own, `processing` and `completed`. They are on different clocks, which is the single most misread thing
+about bulk payouts.
+
+```mermaid
+flowchart TD
+  S["POST /v1/transfers<br/>Idempotency-Key required"] --> N["Transfer status: new<br/>sandbox.funds_sent: false, fee: null"]
+  B["POST /v1/transfers/bulk<br/>1–50 items, one key for the batch"] --> BP["Batch status: processing"]
+  BP -->|"records written, references generated as batch:id"| BC["Batch status: completed<br/>items still at new"]
+  BC --> N
+  N -->|"POST /v1/transfers/:id/simulate"| P["status: pending<br/>event transfer.pending"]
+  P -->|"simulate again with the outcome you want"| OK["status: successful<br/>event transfer.successful"]
+  P -->|"or"| KO["status: failed<br/>event transfer.failed"]
+  OK --> R["Reconcile GET /v1/transfers/:id<br/>or GET /v1/transfers/bulk/:id"]
+  KO --> R
+  N -.->|"simulate a status it already has"| ERR["409 transfer_not_pending"]
+  P -.->|"simulate a status it already has"| ERR
+```
+
+A batch reaching `completed` means the records exist, not that the money path finished: every item inside
+still has to be simulated one at a time. Read `batch: completed` as "N transfers now sit at `new`".
+
+## One transfer
+
+```bash
+curl https://api.firstflip.ng/v1/transfers \
+  -H "Authorization: Bearer $FIRSTFLIP_SECRET_KEY" \
+  -H "Idempotency-Key: $(uuidgen)" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "type": "mobile_money",
+        "country": "GH",
+        "currency": "GHS",
+        "account_bank": "MTN",
+        "account_number": "233240000001",
+        "amount": 100,
+        "beneficiary_name": "Test Customer"
+      }'
+```
+
+```json
+{
+  "id": "tr_test_8f1e2d3c4b5a69788796a5b4",
+  "object": "transfer",
+  "livemode": false,
+  "reference": "tr_test_8f1e2d3c4b5a69788796a5b4",
+  "status": "new",
+  "type": "mobile_money",
+  "country": "GH",
+  "network": null,
+  "currency": "GHS",
+  "debit_currency": "GHS",
+  "amount": 100,
+  "beneficiary": { "account_last4": "0001" },
+  "fee": null,
+  "fee_currency": "GHS",
+  "sandbox": { "funds_sent": false, "fee_quoted": false },
+  "created_at": "2026-11-04T07:30:00.000Z"
+}
+```
+
+Only the last four digits of the destination are echoed (`beneficiary.account_last4`). `status` is one of
+`new`, `pending`, `successful`, `failed`.
+
+### Corridors and required fields
+
+`amount` and `currency` are required; everything else depends on `type` (default `international_bank`).
+`beneficiary_name` is required for every type except the stablecoin types.
+
+| `type` | Where | What you send |
+|---|---|---|
+| `international_bank` | `USD`, `EUR`, `GBP` | `account_number` (5–34 letters/digits), `beneficiary_name`, and `beneficiary` with the currency's fields (below). |
+| `mobile_money` | `CI`/`XOF`, `GH`/`GHS`, `KE`/`KES`, `RW`/`RWF`, `SN`/`XOF`, `UG`/`UGX`, `EG`/`EGP` | `account_bank` (one of the country's networks), `account_number` with the country code (no leading `+`). |
+| `bank_account` | `CM`/`XAF`, `CI`/`XOF`, `ZA`/`ZAR`, `UG`/`UGX` | `account_bank`, `account_number` in the local format; `UG` also needs `destination_branch_code`. |
+| `stablecoin` | `USDT`, `USDC`, `RLUSD` on `SOLANA`, `ETHEREUM`, `BASE`, `POLYGON` | `network`, `account_number` = the wallet address. |
+| `stablecoin_funding` | `USDT`, `USDC` or `RLUSD`, debited in `NGN`, `USD`, `GBP`, `EUR` or `GHS` | No recipient fields — it targets your own business wallet. |
+
+Required `beneficiary` fields for `international_bank`:
+
+- **USD** — `routing_number`, `swift_code`, `bank_name`, `account_type` (`checking` or `depository`),
+  `beneficiary_address`, `postal_code`, `street_number`, `street_name`.
+- **GBP** — `routing_number`, `bank_name`, `account_type` (`personal` or `corporate`). A corporate
+  account also needs `beneficiary_merchant_name`; a personal one needs `first_name` and `last_name`
+  that match `beneficiary_name`.
+- **EUR** — `routing_number`, `swift_code`, `bank_name`, `postal_code`, `street_number`, `street_name`,
+  `city`.
+
+A `bank_account` for `ZA` additionally needs `beneficiary.email`, `beneficiary.recipient_address` and
+`beneficiary.mobile_number` (`+27…`), with `first_name`/`last_name` matching `beneficiary_name`.
+
+`debit_currency` defaults to `currency`. A stablecoin transfer is never cross-converted: keeping it may
+only name a fiat wallet (`NGN`, `USD`, `GBP`, `EUR`, `GHS`) or the same stablecoin.
+
+### Amounts
+
+Fiat amounts take up to two decimal places. `XOF`, `XAF`, `UGX` and `RWF` are whole numbers only.
+Stablecoins take up to six decimal places (`25` or `0.500000`, not `25.0000001`). Amounts must be
+positive.
+
+## Simulate the result
+
+```bash
+curl -X POST https://api.firstflip.ng/v1/transfers/tr_test_8f1e2d3c4b5a69788796a5b4/simulate \
+  -H "Authorization: Bearer $FIRSTFLIP_SECRET_KEY" \
+  -H "Idempotency-Key: $(uuidgen)" \
+  -H "Content-Type: application/json" \
+  -d '{ "status": "successful" }'
+```
+
+`status` is `pending`, `successful` or `failed`. A transfer moves out of `new`/`pending` once — asking
+for a status it already has is `409 transfer_not_pending`. Each move emits `transfer.pending`,
+`transfer.successful` or `transfer.failed` to your webhook endpoints, so you can rehearse the callback
+path before live mode.
+
+## Bulk payouts
+
+```bash
+curl https://api.firstflip.ng/v1/transfers/bulk \
+  -H "Authorization: Bearer $FIRSTFLIP_SECRET_KEY" \
+  -H "Idempotency-Key: $(uuidgen)" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "transfers": [
+          { "type": "mobile_money", "country": "UG", "currency": "UGX", "account_bank": "MTN",
+            "account_number": "256240000001", "amount": 1000, "beneficiary_name": "Test Customer" },
+          { "type": "stablecoin", "currency": "USDT", "network": "SOLANA",
+            "account_number": "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU", "amount": 25 }
+        ]
+      }'
+```
+
+```json
+{
+  "id": "trb_test_41c2d3e4f5a6b7c8d9e0f1a2",
+  "object": "transfer_batch",
+  "livemode": false,
+  "status": "completed",
+  "count": 2,
+  "data": [
+    { "id": "tr_test_1a2b3c4d5e6f708192a3b4c5", "status": "new", "reference": "trb_test_41c2d3e4f5a6b7c8d9e0f1a2:0", "object": "transfer" },
+    { "id": "tr_test_2b3c4d5e6f708192a3b4c5d6", "status": "new", "reference": "trb_test_41c2d3e4f5a6b7c8d9e0f1a2:1", "object": "transfer" }
+  ]
+}
+```
+
+- 1 to 50 items, each validated exactly like a single transfer.
+- **Do not send `reference` per item** — FirstFlip generates one (`<batch id>:<index>`). A per-item
+  reference is `400 invalid_parameter`.
+- `status: completed` means the **records were created**, not that money moved: every transfer still
+  starts at `new`. Simulate each one as in the single-transfer flow.
+- Every entry in `data` is the full transfer object shown above (`beneficiary`, `fee` and `sandbox`
+  included; they are trimmed here for length).
+- Read the batch back with `GET /v1/transfers/bulk/:id`; read one payout with `GET /v1/transfers/:id`.
+
+## List payouts
+
+`GET /v1/transfers` returns your transfers newest first — the reconciliation view.
+
+```bash
+curl "https://api.firstflip.ng/v1/transfers?status=failed&limit=20" \
+  -H "Authorization: Bearer $FIRSTFLIP_SECRET_KEY"
+```
+
+```json
+{
+  "object": "list",
+  "data": [ { "id": "tr_test_8f1e2d3c4b5a69788796a5b4", "status": "failed", "object": "transfer" } ],
+  "has_more": false
+}
+```
+
+- `limit` is 1–100 (default 20). For the next page pass the last `id` as `starting_after` and stop
+  when `has_more` is `false`.
+- `status` filters to `new`, `pending`, `successful` or `failed`; `batch_id` narrows to the payouts
+  one bulk call created.
+- Paging is stable even though a bulk batch writes all its rows at the same instant: you get every
+  payout exactly once, never a skipped or duplicated one.
+- `starting_after` must be one of your transfers, or the API answers `400 invalid_parameter`.
+  Another business's transfer is simply not in your list.
+- `created_from` / `created_before` bound the list to a period, so an end-of-day reconciliation does
+  not have to walk the whole history. Both are RFC 3339; a bare date means midnight UTC.
+
+The window is half-open: `created_from` is inclusive and `created_before` exclusive. So this is
+exactly 4 November UTC, and one day's query followed by the next day's never counts a payout twice:
+
+```bash
+curl "https://api.firstflip.ng/v1/transfers?created_from=2026-11-04&created_before=2026-11-05&limit=100" \
+  -H "Authorization: Bearer $FIRSTFLIP_SECRET_KEY"
+```
+
+A malformed instant is `400 invalid_parameter` with `param` set to the offending name.
+
+Read one payout with `GET /v1/transfers/:id`, or a batch with its own data via
+`GET /v1/transfers/bulk/:id`.
+
+## Retry safely
+
+Every write needs an `Idempotency-Key`. Use **one key for the whole batch**: a retry after a timeout
+returns the same batch and the same payouts instead of creating a second run. Reusing a key with a
+different body is `422 idempotency_key_reused`; a fresh key with the same body creates a new batch, so
+reuse the key, not the call. See [Idempotency & errors](#guide-idempotency-and-errors).
+
+## HTTP errors these routes can answer
+
+Branch on `error.code`, not on the message text — the message is ours to reword, the code is not. Every row
+below is a code a `/v1/transfers*` call can actually return, with the status it carries.
+
+| Status | `code` | Retryable | What to do |
+|---|---|---|---|
+| 400 | `invalid_json` | no | Send a JSON body with `Content-Type: application/json` |
+| 400 | `invalid_parameter` | no | Fix the field the message names: `amount` precision for that currency, an unsupported `currency`/`country`/`network`/`type`, a `debit_currency` you don't hold, or a corridor field left out (`destination_branch_code`, `email`, `recipient_address`) |
+| 400 | `idempotency_key_required` | no | Add the `Idempotency-Key` header — every payout POST needs one |
+| 401 | `invalid_api_key` | no | The key is missing, revoked, or doesn't match the mode you're calling |
+| 403 | `insufficient_scope` | no | This key doesn't carry `transfers:write` (or `transfers:read` for a GET) |
+| 403 | `ip_not_allowed` | no | Your source IP isn't on this key's allow-list; the address is in the message |
+| 403 | `business_inactive` | no | The business that owns the key isn't approved, or its owner is blocked or deleted |
+| 403 | `api_access_paused` | no | FirstFlip has paused API access for this business — contact support |
+| 403 | `live_mode_unavailable` | no | Live payout rails aren't open yet; a live key is refused before your body is read. Use a test key |
+| 404 | `resource_missing` | no | No transfer or batch with that id — check it against the id you were given, not your own reference |
+| 409 | `duplicate_reference` | no | That `reference` already belongs to another transfer; use a fresh one |
+| 409 | `idempotency_in_progress` | yes | A call with that key is still running. Wait, then retry with **the same key** |
+| 409 | `transfer_not_pending` | no | The transfer already left `new`/`pending`. Drive your state machine from `transfer.*` [events](#guide-webhooks), not from a second simulate |
+| 413 | `body_too_large` | no | The body is over the request-size limit; send less. This is separate from the 50-items-per-batch rule, which answers `400 invalid_parameter` |
+| 422 | `idempotency_key_reused` | no | Same key, different body. Either replay the original body byte-for-byte or use a new key |
+| 429 | `rate_limited` | yes | Writes are 60 per key per minute, reads 300; the message carries the seconds to wait. Retry the same call |
+| 500 | `internal_error` | yes | Something failed on our end. Retry with the same `Idempotency-Key` so a retry can't double-pay |
+| 503 | `service_unavailable` | yes | Payouts are temporarily unavailable. Retry with the same key |
+
+## Scopes and rate limits
+
+Creating and simulating payouts needs `transfers:write`; reading needs `transfers:read`. Writes are
+limited to 60 per key per minute and reads to 300.
+
+## Node.js SDK
+
+```js
+const batch = await firstflip.transfers.createBatch([
+  { type: 'mobile_money', country: 'UG', currency: 'UGX', account_bank: 'MTN',
+    account_number: '256240000001', amount: 1000, beneficiary_name: 'Test Customer' },
+  { type: 'stablecoin', currency: 'USDT', network: 'SOLANA',
+    account_number: '7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU', amount: 25 },
+], { idempotencyKey: 'payout-run-2026-11-04' });
+
+for (const transfer of batch.data) {
+  await firstflip.transfers.simulate(transfer.id, 'successful');
+}
+```
+
+`firstflip.transfers.create`, `.retrieve`, `.list`, `.listAll` and `.retrieveBatch` mirror the
+single-transfer calls. `listAll` follows `starting_after` for you:
+
+```js
+for await (const transfer of firstflip.transfers.listAll({ batch_id: batch.id })) {
+  console.log(transfer.id, transfer.status);
+}
+```
+</guide>
+
+<a id="guide-fx"></a>
+<guide name="fx">
+# FX quotes and trades (test mode)
+
+`POST /v1/fx/quotes` asks for a rate; `POST /v1/fx/trades` books it. Rates in the sandbox are
+fixed synthetic snapshots (`sandbox.synthetic_rate: true`), no money moves, and a live key gets
+`403 live_mode_unavailable`. The point of the sandbox is to build and test your quote → trade flow,
+including every failure your code must handle, before live FX opens.
+
+## Quick hints
+
+Short points that matter more than the paragraphs below them.
+
+1. **Three pairs exist.** `NGN→USD`, `GHS→USD`, `USD→NGN`, at fixed synthetic rates. Any other pair is a `400` — and `scenario: invalid_currency_pair` still checks the real pair first, so a nonsense pair is never a 200.
+2. **A ready quote lives 5 minutes.** Read `quote.expires_at`; do not assume the object you fetched at minute 1 is bookable at minute 6.
+3. **Expiry can be lazy and still fires the event.** Reading an unpaid quote after its window answers `expired` *and* emits `fx.quote.expired`.
+4. **There is a floor: the equivalent of 1,000 USD.** Below it the quote is created `failed` with `failure_code: invalid_amount`, whatever `scenario` you asked for.
+5. **`quote` is `null` until `ready`** — and it stays readable once the quote is `used` or `expired`, so keep the object as your rate audit trail.
+6. **One quote books one trade.** Creating the trade marks the quote `used`; a second trade on it is `409 quote_already_used`.
+7. **`scenario` on create is how you avoid waiting.** Only ask for `processing` when you specifically want to exercise the async path.
+8. **Creating a trade sends no event.** The first `fx.trade.*` arrives when the trade moves out of `new` — so build the fulfilment step on the event, not on the create response.
+9. **Each object moves once.** `409 quote_not_ready` and `409 trade_not_pending` both mean "something already moved it" — fetch and read `status`.
+10. **Both simulate calls are writes** and need an `Idempotency-Key` like every other POST here.
+
+## Quote first, then trade — and only once
+
+`FxQuote.status` has five values (`processing`, `ready`, `expired`, `failed`, `used`) and `FxTrade.status`
+has four (`new`, `pending`, `settled`, `failed`). A quote is bookable in exactly one state, and booking it
+consumes it.
+
+```mermaid
+flowchart TD
+  Q["POST /v1/fx/quotes<br/>pair, quantity, optional scenario"] --> FQ{"below the 1,000 USD equivalent floor?"}
+  FQ -->|"yes"| FAIL["status: failed<br/>failure_code: invalid_amount, whatever scenario you asked for"]
+  FQ -->|"no"| PR["status: processing<br/>event fx.quote.processing"]
+  PR -->|"POST /v1/fx/quotes/:id/simulate"| RD["status: ready<br/>quote object filled in, expires_at +5 minutes"]
+  PR -->|"scenario: ready on create"| RD
+  RD -->|"POST /v1/fx/trades with quote_id"| US["quote status: used"]
+  RD -->|"read after expires_at"| EXP["status: expired<br/>event fx.quote.expired still fires"]
+  RD -.->|"second trade on the same quote"| DUPE["409 quote_already_used"]
+  EXP -.->|"trade on an expired quote"| NOQ["409 quote_not_ready"]
+  US --> TN["trade status: new<br/>no event on create"]
+  TN -->|"POST /v1/fx/trades/:id/simulate"| TP["status: pending<br/>first fx.trade.* event arrives here"]
+  TP -->|"simulate again"| TS["status: settled<br/>event fx.trade.settled"]
+  TP -.->|"or"| TF["status: failed<br/>event fx.trade.failed"]
+  TN -.->|"simulate a trade already past new"| TNE["409 trade_not_pending"]
+```
+
+Two things this draws that the prose buries: creating a trade emits **no** event, so fulfilment must hang off
+`fx.trade.*` rather than the create response; and `quote` stays readable on a `used` or `expired` quote, which
+is what makes the object worth storing as a rate audit trail.
+
+## Pairs and amounts
+
+| `base_currency` → `target_currency` | Sandbox rate |
+|---|---|
+| `NGN` → `USD` | 1 NGN = 0.000625 USD |
+| `GHS` → `USD` | 1 GHS = 0.0625 USD |
+| `USD` → `NGN` | 1 USD = 1,600 NGN |
+
+`quantity` is in the base currency, up to two decimal places. The smallest quote is the equivalent
+of **1,000 USD**, so below that the quote is created `failed` with `failure_code: "invalid_amount"`
+whatever `scenario` you asked for.
+
+## Quote
+
+```bash
+curl https://api.firstflip.ng/v1/fx/quotes \
+  -H "Authorization: Bearer $FIRSTFLIP_SECRET_KEY" \
+  -H "Idempotency-Key: $(uuidgen)" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "base_currency": "USD",
+        "target_currency": "NGN",
+        "quantity": 1000,
+        "reference": "quote-1042"
+      }'
+```
+
+```json
+{
+  "id": "fxq_test_9a8b7c6d5e4f3a2b1c0d9e8f",
+  "object": "fx_quote",
+  "livemode": false,
+  "status": "ready",
+  "reference": "quote-1042",
+  "base_currency": "USD",
+  "target_currency": "NGN",
+  "quantity": 1000,
+  "quote": {
+    "rate": "1600",
+    "approved_quantity": 1000,
+    "total_value": 1600000,
+    "expires_at": "2026-11-04T10:35:00.000Z"
+  },
+  "failure_code": null,
+  "pricing": { "fee": 0, "currency": "USD", "status": "simulated" },
+  "sandbox": { "synthetic_rate": true },
+  "created_at": "2026-11-04T10:30:00.000Z"
+}
+```
+
+`status` is `processing`, `ready`, `expired`, `failed` or `used`. `quote` is `null` until the quote
+is `ready`; it stays readable once the quote is `used` or `expired`. A ready quote is good for
+**5 minutes**.
+
+### Choosing the outcome
+
+`scenario` (optional, default `ready`) decides how the quote is created — no waiting needed:
+
+| `scenario` | Result |
+|---|---|
+| `ready` | A usable quote, as above. |
+| `processing` | `status: "processing"`, `quote: null`. Simulate it next. |
+| `expired` | Created already `expired`. |
+| `invalid_amount` | `failed`, `failure_code: "invalid_amount"`. |
+| `invalid_currency_pair` | `failed`, `failure_code: "invalid_currency_pair"` (the pair itself is still checked first: an unsupported pair is a `400`). |
+| `exceeded_limit` | `failed`, `failure_code: "exceeded_limit"`. |
+
+### Simulate a processing quote
+
+```bash
+curl -X POST https://api.firstflip.ng/v1/fx/quotes/fxq_test_9a8b7c6d5e4f3a2b1c0d9e8f/simulate \
+  -H "Authorization: Bearer $FIRSTFLIP_SECRET_KEY" \
+  -H "Idempotency-Key: $(uuidgen)" \
+  -H "Content-Type: application/json" \
+  -d '{ "status": "ready" }'
+```
+
+`status` is `ready`, `failed` or `expired`. Only a `processing` quote that has not expired can move;
+anything else is `409 quote_not_ready`.
+
+Each state change emits `fx.quote.processing`, `fx.quote.ready`, `fx.quote.failed` or
+`fx.quote.expired` — including the lazy expiry when an unpaid quote is read after its five minutes.
+
+## Trade
+
+A trade books a **ready** quote. Creating it marks the quote `used`, so one quote is good for one
+trade.
+
+```bash
+curl https://api.firstflip.ng/v1/fx/trades \
+  -H "Authorization: Bearer $FIRSTFLIP_SECRET_KEY" \
+  -H "Idempotency-Key: $(uuidgen)" \
+  -H "Content-Type: application/json" \
+  -d '{ "quote_id": "fxq_test_9a8b7c6d5e4f3a2b1c0d9e8f", "narration": "November settlement" }'
+```
+
+```json
+{
+  "id": "fxt_test_1a2b3c4d5e6f708192a3b4c5",
+  "object": "fx_trade",
+  "livemode": false,
+  "quote_id": "fxq_test_9a8b7c6d5e4f3a2b1c0d9e8f",
+  "status": "new",
+  "base_currency": "USD",
+  "target_currency": "NGN",
+  "quantity": 1000,
+  "approved_quantity": 1000,
+  "price": 1600000,
+  "narration": "November settlement",
+  "created_at": "2026-11-04T10:31:00.000Z"
+}
+```
+
+- A quote that is not `ready` (or whose five minutes are gone) is `409 quote_not_ready`.
+- A quote already booked by another trade is `409 quote_already_used`.
+- `status` is `new`, `pending`, `settled` or `failed`.
+
+### Simulate the trade
+
+```bash
+curl -X POST https://api.firstflip.ng/v1/fx/trades/fxt_test_1a2b3c4d5e6f708192a3b4c5/simulate \
+  -H "Authorization: Bearer $FIRSTFLIP_SECRET_KEY" \
+  -H "Idempotency-Key: $(uuidgen)" \
+  -H "Content-Type: application/json" \
+  -d '{ "status": "settled" }'
+```
+
+`status` is `pending`, `settled` or `failed`, and each move emits `fx.trade.pending`,
+`fx.trade.settled` or `fx.trade.failed`. A trade moves out of `new`/`pending` once; asking for the
+status it already has is `409 trade_not_pending`.
+
+Creating a trade sends no event by itself: the first `fx.trade.*` event arrives when you simulate
+the move out of `new`.
+
+## Read back
+
+`GET /v1/fx/quotes/:id` and `GET /v1/fx/trades/:id` return the same objects. Another business's id is
+`404 resource_missing`, exactly as if it did not exist.
+
+## Idempotency
+
+Every write needs an `Idempotency-Key`, including both simulate calls. Reusing a key with a
+different body is `422 idempotency_key_reused`; a retry with the same body returns the original
+result. See [Idempotency & errors](#guide-idempotency-and-errors).
+
+## Scopes and rate limits
+
+Quotes and trades need `fx:write` to create or simulate and `fx:read` to read. Writes are limited to
+60 per key per minute and reads to 300.
+
+## Node.js SDK
+
+```js
+const quote = await firstflip.fx.createQuote({
+  base_currency: 'USD', target_currency: 'NGN', quantity: 1000, scenario: 'processing',
+});
+await firstflip.fx.simulateQuote(quote.id, 'ready');
+const trade = await firstflip.fx.createTrade({ quote_id: quote.id });
+await firstflip.fx.simulateTrade(trade.id, 'settled');
+```
+
+`firstflip.fx.retrieveQuote(id)` and `.retrieveTrade(id)` mirror the reads.
+</guide>
+
+<a id="guide-virtual-accounts"></a>
+<guide name="virtual-accounts">
+# Virtual accounts (test mode)
+
+`POST /v1/virtual_accounts` provisions a **test** account number for a customer to pay into. A **static** account
+is reused for a fixed amount; a **dynamic** account takes one payment and expires. Nothing accepts real money:
+every account carries `sandbox.accepts_real_transfers: false`, and the number is a `TEST-…` fixture at
+"FirstFlip Sandbox Bank". A live key gets `403 live_mode_unavailable`.
+
+## Quick hints
+
+Short points that matter more than the paragraphs below them.
+
+1. **`dynamic` is one payment, `static` is a reusable number.** `amount` is required on dynamic and `expires_in` is refused on static — pick the type from the payment pattern, not from convenience.
+2. **The amount rule is the reconciliation.** Exact → `successful`. Over (NGN) → `successful` with the excess in `reversed_amount`. Under (NGN) → `reversed`, full amount back, nothing credited. In GHS, anything not exact → `failed`. One rule per currency, not one rule for both.
+3. **A short payment is not a partial credit.** It reverses in full, so ask the payer to send the exact figure again — do not silently retry the same `reference` and hope it lands.
+4. **Store the `id` when you create the account.** This version has no list route for virtual accounts; `reference` defaults to the id and is yours to overwrite.
+5. **A static NGN account needs an identity check**: `customer.bvn_verification_id` from a consented, verified [BVN check](#guide-verifications), or an 11-digit `nin`/`bvn`. The sandbox validates the format and **discards the value** — so never store one you would have to protect.
+6. **`409 account_inactive` means four different things** — expired, used, inactive, or a second payment into a dynamic account. Fetch the account and read `status`; the code alone will not tell you.
+7. **Expiry is lazy.** A read after `expires_at` returns `expired` and a payment into it is refused; there is no expiry job to watch for a state change.
+8. **Bulk is `static` only, one currency, 1–50, and validated before anything is written** — so a bad item fails the batch instead of creating half of it. No per-item `reference`; FirstFlip assigns `<batch id>:<index>`.
+9. **Nothing is real here.** Every account carries `sandbox.accepts_real_transfers: false` and every payment `sandbox.wallet_credited: false`. Tell your own ops team before anyone wires money to a `TEST-…` number.
+10. **`narration` (35 characters) is what the payer sees** on their bank statement line — it is customer-facing copy, not an internal tag. Use `reference` for that.
+
+## How an account is used up
+
+One account can be paid into once (dynamic) or repeatedly (static), and the amount rule differs per
+currency. `status` has four values — `active`, `inactive`, `expired`, `used` — and a payment has three
+outcomes — `successful`, `failed`, `reversed`.
+
+```mermaid
+flowchart TD
+  C["POST /v1/virtual_accounts<br/>type: dynamic needs amount; type: static refuses expires_in"] --> A["status: active<br/>TEST-… number, accepts_real_transfers: false"]
+  C -.->|"1–50 at once, static only, one currency"| BQ["POST /v1/virtual_accounts/bulk"]
+  BQ --> BP["batch: processing"] --> BC["batch: completed<br/>each account still at active"] --> A
+  A -->|"POST /v1/virtual_accounts/:id/simulate_payment"| Pay{"amount vs account amount"}
+  Pay -->|"exact"| OK["payment: successful<br/>event virtual_account.payment.successful"]
+  Pay -->|"over, NGN"| OV["payment: successful<br/>excess in reversed_amount"]
+  Pay -->|"under, NGN"| RV["payment: reversed, full amount back<br/>nothing credited"]
+  Pay -->|"any inexact amount, GHS"| FL["payment: failed"]
+  A -->|"dynamic account paid once"| U["status: used"]
+  A -->|"read after expires_at"| X["status: expired — lazy, no expiry job"]
+  A -->|"POST /v1/virtual_accounts/:id/deactivate"| I["status: inactive"]
+  U -.->|"second payment into a dynamic account"| D409["409 account_inactive<br/>read status: it means four different things"]
+  X -.-> D409
+  I -.-> D409
+  RV -.-> D409
+```
+
+The four dashed arrows into `409 account_inactive` are the trap this shape exists to draw: the code is the
+same and the repair is not, so fetch `GET /v1/virtual_accounts/:id` and branch on `status`.
+
+## One account
+
+```bash
+curl https://api.firstflip.ng/v1/virtual_accounts \
+  -H "Authorization: Bearer $FIRSTFLIP_SECRET_KEY" \
+  -H "Idempotency-Key: $(uuidgen)" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "currency": "NGN",
+        "type": "dynamic",
+        "amount": 5000,
+        "customer": { "email": "ada@example.com", "first_name": "Ada", "last_name": "Obi" },
+        "narration": "Order 1042"
+      }'
+```
+
+```json
+{
+  "id": "va_test_5f3c1a9d2e7b4c6081a2b3c4",
+  "object": "virtual_account",
+  "livemode": false,
+  "reference": "va_test_5f3c1a9d2e7b4c6081a2b3c4",
+  "currency": "NGN",
+  "type": "dynamic",
+  "status": "active",
+  "amount": 5000,
+  "account_number": "TEST-NGN-2e7b4c6081a2",
+  "bank_name": "FirstFlip Sandbox Bank",
+  "narration": "Order 1042",
+  "expires_at": "2026-11-04T11:30:00.000Z",
+  "created_at": "2026-11-04T10:30:00.000Z",
+  "sandbox": { "accepts_real_transfers": false }
+}
+```
+
+`account_number` is `TEST-<currency>-` plus the last 12 characters of the account id. `status` is one of
+`active`, `inactive`, `expired`, `used`.
+
+### Static or dynamic
+
+| | `static` | `dynamic` |
+|---|---|---|
+| `amount` | Optional; a fixed expected amount | **Required** |
+| `expires_in` | Not accepted (`400 invalid_parameter`) | 1–1440 minutes, default 60 |
+| After a successful payment | Stays `active` | Becomes `used` |
+| After `expires_at` | Reads as `expired` | Reads as `expired` |
+
+`currency` is `NGN` or `GHS` (default `NGN`) and `type` defaults to `dynamic`.
+
+- `customer` is required on every account: a valid `email`, plus `first_name` and `last_name`.
+- A **static NGN** account needs an identity check: either `customer.bvn_verification_id` from a consented,
+  verified [BVN check](#guide-verifications), or an 11-digit `customer.nin` (an 11-digit `customer.bvn` is accepted the
+  same way). The sandbox validates the format and then discards the value — nothing is stored.
+- `amount` is in major units, positive, at most two decimal places.
+- `reference` (max 100) defaults to the account id; `narration` (max 35) is what the payer sees.
+
+## Simulate a payment
+
+```bash
+curl -X POST https://api.firstflip.ng/v1/virtual_accounts/va_test_5f3c1a9d2e7b4c6081a2b3c4/simulate_payment \
+  -H "Authorization: Bearer $FIRSTFLIP_SECRET_KEY" \
+  -H "Idempotency-Key: $(uuidgen)" \
+  -H "Content-Type: application/json" \
+  -d '{ "amount": 5000, "reference": "bank-ref-88213" }'
+```
+
+```json
+{
+  "id": "vap_test_a1b2c3d4e5f60718293a4b5c",
+  "object": "virtual_account_payment",
+  "livemode": false,
+  "virtual_account_id": "va_test_5f3c1a9d2e7b4c6081a2b3c4",
+  "reference": "bank-ref-88213",
+  "session_id": "TEST-SESSION-vap_test_a1b2c3d4e5f60718293a4b5c",
+  "currency": "NGN",
+  "amount": 5000,
+  "credited_amount": 5000,
+  "reversed_amount": 0,
+  "status": "successful",
+  "sandbox": { "wallet_credited": false },
+  "created_at": "2026-11-04T10:35:00.000Z"
+}
+```
+
+The outcome depends on the amount against the account's expected amount:
+
+| Paid | `status` | `credited_amount` | `reversed_amount` |
+|---|---|---|---|
+| Equal to the expected amount, or any amount into a static account with no `amount` | `successful` | the amount | `0` |
+| More than the expected amount (NGN) | `successful` | the expected amount | the excess |
+| Less than the expected amount (NGN) | `reversed` | `0` | the full amount |
+| Not equal to the expected amount (GHS) | `failed` | `0` | `0` |
+
+Each result emits `virtual_account.payment.successful`, `.failed` or `.reversed` to your webhook endpoints. No
+wallet is credited anywhere in the sandbox (`sandbox.wallet_credited: false`).
+
+- `reference` is required and identifies the payer's transfer; it is echoed back for reconciliation.
+- A dynamic account is consumed by its first **successful** payment. A second payment, or any payment into an
+  account that is `inactive`, `expired` or `used`, is `409 account_inactive`.
+- Reusing an `Idempotency-Key` with a different body (or against another account) is `422
+  idempotency_key_reused`. Replaying the same request returns the same receipt.
+
+## Bulk accounts
+
+`POST /v1/virtual_accounts/bulk` provisions 1 to 50 **static** accounts in one call, all in one currency.
+
+```bash
+curl https://api.firstflip.ng/v1/virtual_accounts/bulk \
+  -H "Authorization: Bearer $FIRSTFLIP_SECRET_KEY" \
+  -H "Idempotency-Key: $(uuidgen)" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "accounts": [
+          { "customer": { "email": "ada@example.com", "first_name": "Ada", "last_name": "Obi", "nin": "12345678901" } },
+          { "customer": { "email": "sam@example.com", "first_name": "Sam", "last_name": "Eze", "nin": "12345678902" } }
+        ]
+      }'
+```
+
+```json
+{
+  "id": "vab_test_7c8d9e0f1a2b3c4d5e6f7081",
+  "object": "virtual_account_batch",
+  "livemode": false,
+  "status": "completed",
+  "currency": "NGN",
+  "count": 2,
+  "data": [
+    { "id": "va_test_1a2b3c4d5e6f708192a3b4c5", "reference": "vab_test_7c8d9e0f1a2b3c4d5e6f7081:0", "object": "virtual_account" },
+    { "id": "va_test_2b3c4d5e6f708192a3b4c5d6", "reference": "vab_test_7c8d9e0f1a2b3c4d5e6f7081:1", "object": "virtual_account" }
+  ]
+}
+```
+
+- The whole batch is validated before anything is written.
+- Every item must be `static`, share one currency (set it once at the top, or on each item — not both differently),
+  and **must not** carry its own `reference`: FirstFlip assigns `<batch id>:<index>`.
+- `status: completed` means the accounts exist; they are live numbers you can simulate payments against.
+- Read the batch back with `GET /v1/virtual_accounts/bulk/:id`.
+
+## Lifetime and reads
+
+```bash
+curl -X POST https://api.firstflip.ng/v1/virtual_accounts/va_test_5f3c1a9d2e7b4c6081a2b3c4/deactivate \
+  -H "Authorization: Bearer $FIRSTFLIP_SECRET_KEY" \
+  -H "Idempotency-Key: $(uuidgen)"
+```
+
+- `deactivate` moves `active` to `inactive`, once. Anything else is `409 account_inactive`.
+- Expiry is lazy: a read after `expires_at` returns `expired`, and a payment into it is refused.
+- `GET /v1/virtual_accounts/:id` returns the same object shown above.
+- There is no list route for virtual accounts in this version; store the `id` (or your `reference`) when you
+  create one.
+
+## Retry safely
+
+Every write needs an `Idempotency-Key`. Use **one key for the whole bulk call**: a retry returns the same batch and
+the same accounts. Reusing a key with a different body is `422 idempotency_key_reused`. See
+[Idempotency & errors](#guide-idempotency-and-errors).
+
+## Scopes and rate limits
+
+Creating, deactivating and simulating need `virtual_accounts:write`; reads need `virtual_accounts:read`. Writes are
+limited to 60 per key per minute and reads to 300.
+
+## Node.js SDK
+
+```js
+const account = await firstflip.virtualAccounts.create({
+  currency: 'NGN',
+  type: 'dynamic',
+  amount: 5000,
+  customer: { email: 'ada@example.com', first_name: 'Ada', last_name: 'Obi' },
+  narration: 'Order 1042',
+});
+
+const receipt = await firstflip.virtualAccounts.simulatePayment(account.id, {
+  amount: 5000,
+  reference: 'bank-ref-88213',
+}, { idempotencyKey: 'va-payment-88213' });
+console.log(receipt.status, receipt.credited_amount); // successful 5000
+
+const batch = await firstflip.virtualAccounts.createBatch([
+  { customer: { email: 'ada@example.com', first_name: 'Ada', last_name: 'Obi', nin: '12345678901' } },
+  { customer: { email: 'sam@example.com', first_name: 'Sam', last_name: 'Eze', nin: '12345678902' } },
+], { idempotencyKey: 'customer-accounts-nov' });
+for (const va of batch.data) console.log(va.id, va.account_number);
+```
+
+`firstflip.virtualAccounts.retrieve`, `.retrieveBatch` and `.deactivate` mirror the calls above.
+</guide>
+
+<a id="guide-verifications"></a>
+<guide name="verifications">
+# Verifications (test mode)
+
+Two checks live under `/v1/verifications`: a **BVN consent flow** (start a check, then simulate what the provider
+would answer) and **bank-account resolution** (the name behind a payout destination). Both are test-mode only —
+nothing here grants real KYC, verifies an identity, or moves money, and a live key gets `403 live_mode_unavailable`.
+
+## Quick hints
+
+Short points that matter more than the paragraphs below them.
+
+1. **A BVN check is a consent flow, not a lookup.** It is created `consent_pending` and resolves later as a status change plus a `bvn.*` event. Code it as asynchronous from the first line.
+2. **You never get the BVN back — and you never need to keep it.** It is hashed on arrival, never returned, never logged. Persist the check `id`, nothing else.
+3. **`consent_url` is `null` in the sandbox** because there is no hosted consent page here. `simulate` is the entire consent path.
+4. **Two clocks, not one.** The check expires **24 hours** after creation; the underlying record is deleted **30 days** after creation. The first is whether you can still use it, the second is how long anything exists to leak.
+5. **`failed` still means they consented.** `consent_granted` is `true` on `failed` and `false` on `declined` — so never infer consent from `status` alone.
+6. **A `purpose: api_owner` check emits no event.** It is about your own business identity; watch it by reading it back.
+7. **`409 verification_not_pending` has two causes** — the check already moved, or its 24 hours ran out. Fetch it and read `status` before deciding what to do.
+8. **Nothing here is production evidence.** A simulated result never sets real KYC status and never unlocks a live key, and `account_verified` is always `false`. Do not gate a live feature on a test check.
+9. **Bank-name resolution accepts only the three documented test destinations.** Anything else is `400 account_not_found` — the sandbox will not invent a name for a real account number, which is exactly why you should call it before a payout.
+10. **A verified, consented, unexpired check can stand in for the identity requirement** on a static NGN [virtual account](#guide-virtual-accounts) via `customer.bvn_verification_id` — with `first_name`/`last_name` matching, or the account is refused `409 bvn_not_verified`.
+
+## One check, two clocks, and a separate synchronous call
+
+`BvnVerification.status` is `consent_pending`, `verified`, `declined` or `failed`. Bank resolution is not on
+that machine at all: it answers in the response and has no status to watch.
+
+```mermaid
+flowchart TD
+  A["POST /v1/verifications/bvn<br/>purpose: api_customer or api_owner, Idempotency-Key"] --> CP["status: consent_pending<br/>consent_url is null in the sandbox<br/>BVN hashed on arrival, never returned"]
+  CP -->|"POST /v1/verifications/bvn/:id/simulate"| V["status: verified<br/>event bvn.verified"]
+  CP -->|"or"| DE["status: declined<br/>consent_granted: false<br/>event bvn.declined"]
+  CP -->|"or"| FA["status: failed<br/>consent_granted: TRUE — they did consent<br/>event bvn.failed"]
+  CP -.->|"simulate after 24 hours"| NPE["409 verification_not_pending<br/>either it already moved or the window closed"]
+  CP -->|"read after 24 hours"| EX["the check is no longer usable"]
+  EX -.->|"record deleted 30 days after creation"| GO["nothing exists to leak"]
+  A -.->|"purpose: api_owner"| NOE["no event is emitted<br/>watch it by reading GET /v1/verifications/bvn/:id"]
+  V -->|"customer.bvn_verification_id on a static NGN account"| VA["virtual account created, or 409 bvn_not_verified"]
+  B["POST /v1/verifications/bank_account<br/>documented test destinations only"] -->|"same request, same response"| BN["name behind the number<br/>or 400 account_not_found"]
+  BN -.->|"call it before a payout"| C["you learn the mismatch without paying into it"]
+```
+
+The edge worth reading twice is `failed` → `consent_granted: true`. A failed check is not a refusal, so
+`status` alone will tell your ops team the wrong story; read the consent flag with it.
+
+## BVN verification
+
+A BVN check is a consent flow, not a lookup. You create the request, the customer consents, and the result arrives
+as a status change plus a `bvn.*` webhook event.
+
+```bash
+curl https://api.firstflip.ng/v1/verifications/bvn \
+  -H "Authorization: Bearer $FIRSTFLIP_SECRET_KEY" \
+  -H "Idempotency-Key: $(uuidgen)" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "bvn": "22222222222",
+        "first_name": "Ada",
+        "last_name": "Obi",
+        "redirect_url": "https://example.com/kyc/done"
+      }'
+```
+
+```json
+{
+  "id": "bvn_test_…",
+  "object": "bvn_verification",
+  "livemode": false,
+  "purpose": "api_customer",
+  "status": "consent_pending",
+  "consent_granted": false,
+  "verified_at": null,
+  "expires_at": "2026-11-05T10:30:00.000Z",
+  "consent_url": null,
+  "sandbox": { "identity_verified": false, "consent_channel": "email" }
+}
+```
+
+- `bvn` is an 11-digit string and must not be all zeros. It is hashed on arrival and never stored in the clear,
+  never returned, and never logged.
+- `first_name` and `last_name` must match the BVN holder; the match is checked against the hashed names later.
+- `redirect_url` must be a public HTTPS URL — that is where the customer lands after consent. You never receive the
+  BVN back.
+- A check expires **24 hours** after creation. The underlying record is removed **30 days** after creation.
+- `purpose` is `api_customer` for a check about one of your customers, or `api_owner` for your own business.
+
+### Simulate the provider's answer
+
+There is no hosted consent page in the sandbox, so `consent_url` is `null`; test the decision with `simulate`.
+
+```bash
+curl -X POST https://api.firstflip.ng/v1/verifications/bvn/bvn_test_…/simulate \
+  -H "Authorization: Bearer $FIRSTFLIP_SECRET_KEY" \
+  -H "Idempotency-Key: $(uuidgen)" \
+  -H "Content-Type: application/json" \
+  -d '{ "outcome": "verified" }'
+```
+
+| `outcome` | `status` | `consent_granted` | `verified_at` |
+|---|---|---|---|
+| `verified` | `verified` | `true` | now |
+| `declined` | `declined` | `false` | `null` |
+| `failed` | `failed` | `true` | `null` |
+
+- The move is allowed once, and only while the check is `consent_pending` and unexpired. Anything else is
+  `409 verification_not_pending`.
+- Each outcome emits `bvn.verified`, `bvn.declined` or `bvn.failed`. A check created with `purpose: api_owner` is
+  about your own business identity and emits no event.
+- A simulated result **never** sets real KYC status or grants a live key. Test identity evidence cannot become
+  production evidence.
+
+Read it back with `GET /v1/verifications/bvn/:id` (same shape, without `consent_url`).
+
+### Using the result
+
+A `verified` check can stand in for an identity check when provisioning a **static NGN virtual account**: pass its
+id as `customer.bvn_verification_id`, with `first_name` and `last_name` matching the check. The verification must be
+`verified`, consented and unexpired, or the account is refused with `409 bvn_not_verified`.
+
+## Bank-account resolution
+
+Resolve a destination name before a payout, so a mistyped number is caught before money is attached to it.
+
+```bash
+curl -X POST https://api.firstflip.ng/v1/verifications/bank_account \
+  -H "Authorization: Bearer $FIRSTFLIP_SECRET_KEY" \
+  -H "Idempotency-Key: $(uuidgen)" \
+  -H "Content-Type: application/json" \
+  -d '{ "country": "NG", "type": "bank_account", "account_bank": "044", "account_number": "0690000032" }'
+```
+
+```json
+{
+  "object": "bank_account_verification",
+  "livemode": false,
+  "country": "NG",
+  "type": "bank_account",
+  "account_bank": "044",
+  "account_number": "0690000032",
+  "account_name": "FIRSTFLIP TEST CUSTOMER",
+  "sandbox": { "account_verified": false }
+}
+```
+
+`country` defaults to `NG` and `type` to `bank_account`. Supported destinations are NG bank accounts, GH bank
+accounts and GH mobile money (`type: mobile_money`).
+
+The sandbox answers **only** these documented test destinations. Anything else is `400 account_not_found` — the
+sandbox never invents a name for a real account number:
+
+| `country` | `type` | `account_bank` | `account_number` | `account_name` |
+|---|---|---|---|---|
+| `NG` | `bank_account` | `044` | `0690000032` | `FIRSTFLIP TEST CUSTOMER` |
+| `GH` | `bank_account` | `001` | `0000000001` | `FIRSTFLIP GHANA TEST CUSTOMER` |
+| `GH` | `mobile_money` | `MTN` | `233240000001` | `FIRSTFLIP GHANA MOBILE TEST CUSTOMER` |
+
+`account_number` must be 5–20 digits (exactly 10 for NG). `account_verified` is always `false`: the name is a
+fixture, not proof of account ownership.
+
+## Retry safely
+
+Every write needs an `Idempotency-Key`. Creating the same check twice with the same key returns the same record;
+reusing a key with a different body is `422 idempotency_key_reused`. See
+[Idempotency & errors](#guide-idempotency-and-errors).
+
+## Scopes and rate limits
+
+Creating and simulating a check, and resolving a bank account, need `verifications:write`; reading a check needs
+`verifications:read`. Writes are limited to 60 per key per minute and reads to 300.
+
+## Node.js SDK
+
+```js
+const check = await firstflip.verifications.createBvn({
+  bvn: '22222222222',
+  first_name: 'Ada',
+  last_name: 'Obi',
+  redirect_url: 'https://example.com/kyc/done',
+});
+console.log(check.status, check.consent_url); // consent_pending null
+
+const done = await firstflip.verifications.simulateBvn(check.id, 'verified');
+console.log(done.status, done.verified_at); // verified <timestamp>
+
+const dest = await firstflip.verifications.resolveBank({
+  country: 'NG', type: 'bank_account', account_bank: '044', account_number: '0690000032',
+});
+console.log(dest.account_name); // FIRSTFLIP TEST CUSTOMER
+```
+
+`firstflip.verifications.retrieveBvn` reads a check back.
+</guide>
+
+<a id="guide-one-time-passwords"></a>
+<guide name="one-time-passwords">
+# One-time passwords (test mode)
+
+`/v1/otps` sends and checks a one-time code for you, so your app never owns an SMS, email or WhatsApp pipeline.
+Price it, create the code, hand it to the customer, validate what they type. Everything is test mode: nothing is
+delivered, the sandbox code is returned to you, and the charge is simulated. A live key gets
+`403 live_mode_unavailable`.
+
+## Quick hints
+
+Short points that matter more than the paragraphs below them.
+
+1. **Nothing is delivered.** `sandbox.delivered` is `false` and the code arrives in `sandbox.code` so you can finish the flow. That field does not exist in live mode — treat it as test-only plumbing and never render it in a UI you ship.
+2. **`400 invalid_otp` and `409 otp_not_pending` are different sentences.** The first says the code they typed is wrong; the second says the code is dead — locked, verified or expired. Branch on them separately, because the repair is different.
+3. **Five wrong attempts lock the code**, and the counter is atomic: two concurrent validates can neither exceed five attempts nor verify the same code twice. Read `attempts_remaining` rather than counting in your own database.
+4. **Read the price, do not hard-code it.** `GET /v1/otps/pricing` is operator-configurable (email 2 / SMS 8 / WhatsApp 30 NGN today).
+5. **No wallet is debited.** `billing.status` is `simulated`, and `billing.amount` is the retail total for the mediums you chose — so multi-medium sends bill once per medium.
+6. **There are no webhook events for OTPs.** The validate call is the result you act on; nothing will tell you later.
+7. **Expiry is 1–10 minutes (default 5) and lazy** — a read after `expires_at` shows `expired`. If your UI holds a countdown, drive it from `expires_at`, not from your own arithmetic.
+8. **Contact details are validated and then discarded**; the sandbox persists no phone number or email. Do not assume you can read them back, and do not keep them either.
+9. **Field requirements follow `medium`.** `email` needs `customer.email`; `sms` and `whatsapp` need `customer.phone` with the country code. `send` accepts only `true`, if you send it at all.
+
+## The code has four states and two of them are dead ends
+
+`Otp.status` is `pending`, `verified`, `expired` or `locked`. Only the first two arrows below are a customer
+success; the other two both refuse the code, and they refuse it with different error codes.
+
+```mermaid
+flowchart TD
+  P["GET /v1/otps/pricing<br/>email 2 / SMS 8 / WhatsApp 30 NGN today"] --> C["POST /v1/otps<br/>medium + customer contact, Idempotency-Key"]
+  C --> PE["status: pending<br/>sandbox.delivered: false, code in sandbox.code<br/>billing.status: simulated"]
+  PE -->|"POST /v1/otps/:id/validate with the right code"| V["status: verified<br/>terminal"]
+  PE -->|"wrong code, attempts remaining"| W["still pending<br/>400 invalid_otp<br/>attempts_remaining decremented atomically"]
+  W -->|"5 wrong attempts in total"| L["status: locked<br/>409 otp_not_pending"]
+  PE -->|"read after expires_at, 1–10 minutes, default 5"| X["status: expired<br/>409 otp_not_pending"]
+  L -.->|"no webhook ever fires for an OTP"| N["the validate call is the only result"]
+  X -.-> N
+  V -.-> N
+```
+
+Branch on the two refusals separately: `400 invalid_otp` means the code they typed is wrong and they can try
+again, while `409 otp_not_pending` means the code is dead and only a new `POST /v1/otps` helps. Because there
+are no OTP events, nothing arrives later to tell you which one the customer hit.
+
+## What it costs
+
+```bash
+curl https://api.firstflip.ng/v1/otps/pricing \
+  -H "Authorization: Bearer $FIRSTFLIP_SECRET_KEY"
+```
+
+```json
+{
+  "object": "otp_pricing",
+  "currency": "NGN",
+  "data": [
+    { "medium": "email", "unit_amount": 2 },
+    { "medium": "sms", "unit_amount": 8 },
+    { "medium": "whatsapp", "unit_amount": 30 }
+  ]
+}
+```
+
+`unit_amount` is what you pay per code, in NGN. Read this endpoint rather than hard-coding a price — the figures are
+operator-configurable.
+
+## Create a code
+
+```bash
+curl https://api.firstflip.ng/v1/otps \
+  -H "Authorization: Bearer $FIRSTFLIP_SECRET_KEY" \
+  -H "Idempotency-Key: $(uuidgen)" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "customer": { "name": "Ada Obi", "phone": "+2348030000001" },
+        "medium": ["sms"],
+        "length": 6,
+        "expiry": 5
+      }'
+```
+
+```json
+{
+  "id": "otp_test_4d5e6f708192a3b4c5d6e7f8",
+  "object": "otp",
+  "livemode": false,
+  "status": "pending",
+  "medium": ["sms"],
+  "length": 6,
+  "attempts_remaining": 5,
+  "billing": { "currency": "NGN", "amount": 8, "status": "simulated" },
+  "expires_at": "2026-11-04T10:35:00.000Z",
+  "verified_at": null,
+  "created_at": "2026-11-04T10:30:00.000Z",
+  "sandbox": { "code": "123456", "delivered": false }
+}
+```
+
+| Field | Rule |
+|---|---|
+| `customer.name` | Required, up to 100 characters |
+| `customer.email` | Required when `medium` includes `email`, and must be valid |
+| `customer.phone` | Required for `sms` and `whatsapp`; include the country code (`+234…`) |
+| `medium` | 1–3 unique values from `email`, `sms`, `whatsapp`; default `["sms"]` |
+| `length` | 5, 6 or 7 digits; default 6 |
+| `expiry` | 1–10 minutes; default 5 |
+| `sender` | Optional sender id, up to 35 characters |
+| `send` | Only `true` is accepted, if you pass it at all |
+
+- **Nothing is delivered**: `sandbox.delivered` is `false` and the code is returned in `sandbox.code` so you can
+  finish the flow. In live mode the code is never returned.
+- `billing.amount` is the retail total for the chosen mediums (`8` for one SMS by default), and `billing.status` is
+  `simulated`: no wallet is debited.
+- Customer contact details are validated and then discarded — the sandbox does not persist a phone number or email.
+
+## Validate what the customer typed
+
+```bash
+curl -X POST https://api.firstflip.ng/v1/otps/otp_test_4d5e6f708192a3b4c5d6e7f8/validate \
+  -H "Authorization: Bearer $FIRSTFLIP_SECRET_KEY" \
+  -H "Idempotency-Key: $(uuidgen)" \
+  -H "Content-Type: application/json" \
+  -d '{ "otp": "123456" }'
+```
+
+A correct code returns the code with `status: "verified"` and `verified_at` set.
+
+| What happened | Response |
+|---|---|
+| Correct code | `200`, `status: verified` |
+| Wrong code | `400 invalid_otp` (param `otp`), one attempt consumed |
+| Fifth wrong attempt | `400 invalid_otp`, and the code is now `locked` |
+| Validating a locked, verified or expired code | `409 otp_not_pending` |
+
+- `attempts_remaining` counts down from 5 on the object; check it with `GET /v1/otps/:id`.
+- Attempts and the outcome resolve in one atomic move, so two concurrent validates cannot exceed five attempts or
+  verify the same code twice.
+- Expiry is lazy: reading a code after `expires_at` shows `expired`, and validating it is `409 otp_not_pending`.
+- There are no webhook events for `otps`; validation is the result you act on.
+
+## Retry safely
+
+Every write needs an `Idempotency-Key`. Retrying a create with the same key returns the same code instead of sending
+and billing a second one; reusing a key with a different body is `422 idempotency_key_reused`. See
+[Idempotency & errors](#guide-idempotency-and-errors).
+
+## Scopes and rate limits
+
+Creating and validating need `otps:write`; pricing and reads need `otps:read`. Writes are limited to 60 per key per
+minute and reads to 300.
+
+## Node.js SDK
+
+```js
+const price = await firstflip.otps.pricing();
+const sms = price.data.find((p) => p.medium === 'sms');
+console.log(sms.unit_amount); // NGN per code
+
+const otp = await firstflip.otps.create({
+  customer: { name: 'Ada Obi', phone: '+2348030000001' },
+  medium: ['sms'],
+});
+console.log(otp.billing.amount, otp.sandbox.code); // 8 123456 (sandbox only)
+
+const done = await firstflip.otps.validate(otp.id, otp.sandbox.code);
+console.log(done.status, done.verified_at); // verified <timestamp>
+```
+
+`firstflip.otps.retrieve(id)` reads the code back, `attempts_remaining` included.
+</guide>
+
+<a id="guide-assistant"></a>
+<guide name="assistant">
+# Assistant
+
+`POST /v1/assistant` answers integration questions from this documentation. It is the same knowledge
+base the guides are built from, so an answer can never be more current, or more generous, than the page
+you are reading.
+
+It has its own cap — 30 questions per key per hour — and takes no `Idempotency-Key`. It needs the
+`assistant:ask` scope.
+
+## Quick hints
+
+Short points that matter more than the paragraphs below them.
+
+1. **It is switched off by default during the beta.** `503 assistant_disabled` is not retryable and blocks nothing else — the guides and every other endpoint keep working.
+2. **A price never comes out of it.** Sentences stating a price or a fee are dropped even when the docs support them; read amounts from `GET /v1/otps/pricing` or the guide's own table.
+3. **So is the name of an upstream provider.** The rails FirstFlip settles through never become chat copy.
+4. **Check `removed_claims` before you trust the prose.** It counts sentences dropped for numbers the docs do not contain; when everything is dropped you get the documented "no documented answer" line instead.
+5. **Code blocks arrive whole.** Their literals come from the guides' own examples, so a snippet is as safe as the page it was copied from.
+6. **It cannot do anything.** No charge created, no money moved, no setting changed — it answers and points at the guide that explains the operation.
+7. **Never put a credential in the question.** It will not ask for one, will not repeat one, and will not reveal one.
+8. **`Idempotency-Key` is not taken here.** The cap is instead 30 questions per key per hour; a `429` tells you how long to wait with `Retry-After`.
+9. **2,000 characters, and not empty.** Over that is `400 question_too_long`; missing is `400 question_required`.
+10. **Ask one thing and name the endpoint.** "Which parameter makes a charge expire?" beats "explain everything" — the answer can cite the exact rule when the question has a subject.
+
+## What happens to your question
+
+Every sentence is checked before it reaches you, and two categories are dropped even when the guides support
+them. `removed_claims` is the count of what fell out.
+
+```mermaid
+flowchart TD
+  Q["POST /v1/assistant<br/>question, 1–2000 characters, no Idempotency-Key"] --> V{"valid?"}
+  V -->|"missing"| E1["400 question_required"]
+  V -->|"over 2000"| E2["400 question_too_long"]
+  V -->|"switch off"| E3["503 assistant_disabled — not retryable"]
+  V -->|"over 30 per key per hour"| E4["429 with Retry-After"]
+  V -->|"yes"| K["Drawn from the published guides only"]
+  K --> S{"sentence check against the docs"}
+  S -->|"number, certification, rating, contact detail or delivery promise the docs do not contain"| DROP["sentence removed<br/>removed_claims + 1"]
+  S -->|"states a price or a fee"| DROP
+  S -->|"names an upstream payment provider"| DROP
+  S -->|"supported and in scope"| A["answer text"]
+  DROP --> Z{"everything dropped?"}
+  Z -->|"yes"| N["I don't have a documented answer for that"]
+  Z -->|"no"| A
+  A --> C["code blocks returned whole<br/>their literals come from the guides' own examples"]
+  C --> OUT["assistant_answer with removed_claims"]
+  K -.->|"it cannot act"| NO["no charge created, no money moved, no setting changed"]
+  K -.->|"it cannot handle credentials"| NOKEY["never asks for, repeats or reveals a key"]
+```
+
+Read `removed_claims` as a liveness signal for the docs behind the answer: a nonzero count means the assistant
+found something to say that the published pages do not support, and the safe move is to trust the page.
+
+```bash
+curl https://api.firstflip.ng/v1/assistant \
+  -H "Authorization: Bearer $FIRSTFLIP_SECRET_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "question": "How do I verify a FirstFlip-Signature?" }'
+```
+
+```json
+{
+  "object": "assistant_answer",
+  "answer": "Recompute HMAC-SHA256 over \"<t>.<raw body>\" with the endpoint's signing secret, compare in constant time, and reject a timestamp older than 5 minutes. See the Webhooks guide for the check.",
+  "removed_claims": 0
+}
+```
+
+## What it will and will not do
+
+- It answers from the published guides only. If the docs don't cover it, it says so instead of guessing:
+  *"I don't have a documented answer for that. Check the guides, or ask FirstFlip support."*
+- Every sentence is checked against the docs before it reaches you. One whose numbers, percentages,
+  certifications, ratings, contact details or delivery promises the docs don't contain is removed.
+  `removed_claims` counts the sentences dropped. If everything is dropped you get the "I don't have a
+  documented answer" line. Code blocks are returned whole, because their literals come from the docs'
+  own examples.
+- Two kinds of sentence are dropped **even when the docs support them**: one that states a price or a
+  fee, and one that names an upstream payment provider. It cannot quote a price even if you ask one
+  directly; read amounts from `GET /v1/otps/pricing` or the guide's table. This is deliberate: a chat
+  that can't state a price can't misquote one, and the rails we settle through never become public
+  copy.
+- It never asks for, repeats or reveals an API key, webhook secret or other credential. Keep keys on
+  your server.
+- It cannot act: it cannot create a charge, move money or change a setting. It answers and points at the
+  guide that does.
+
+## Limits and errors
+
+| HTTP | `code` | Meaning |
+|---|---|---|
+| 400 | `question_required` | `question` was empty or missing |
+| 400 | `question_too_long` | Over 2000 characters |
+| 429 | `rate_limited` | Over 30 questions this hour; wait `Retry-After` |
+| 503 | `assistant_disabled` | The assistant is switched off for this environment (not retryable) |
+| 503 | `assistant_unavailable` | Briefly unavailable (retryable) |
+
+The assistant is off by default during the beta. A `503 assistant_disabled` means the docs are still
+readable and every other endpoint works; only the chat is switched off.
+
+## Asking well
+
+- Ask about one thing at a time: *"Which parameter sets a charge to expire?"* beats *"explain
+  everything"*.
+- Name the endpoint or field you are working with, so the answer can cite the exact rule.
+- Ask for a language you use; Node.js with `fetch` is the default.
+
+## With the Node SDK
+
+```js
+const answer = await firstflip.assistant.ask('How do I verify a FirstFlip-Signature?');
+console.log(answer.answer);
+```
+
+## Keep your own assistant grounded the same way
+
+The guides are plain markdown on purpose: if you build your own support assistant, feed it these pages
+(and `assistant/knowledge.md`, the generated bundle behind this endpoint) rather than a summary. The
+grounding rule above — drop any sentence whose numbers the source doesn't contain — is the part that
+stops a chat from inventing a fee.
+</guide>
+
+<a id="guide-agents"></a>
+<guide name="agents">
+# FirstFlip for AI coding agents
+
+The FirstFlip API is built to be called by AI coding agents, not just humans reading docs. Everything
+in this guide is the same surface the Node.js SDK and the Postman collection cover — the contract in
+[`openapi.yaml`](openapi.yaml) is the only source of truth, and the MCP server and the CLI are
+both generated from it.
+
+> **Start with a test key.** Test keys simulate supported operations. A live key is subject to
+> business verification, scopes and the live prerequisites of each operation. This connector does
+> not enable a live rail. Read the relevant product guide before using a live key.
+
+## Quick hints
+
+Short points that matter more than the paragraphs below them.
+
+1. **One contract, three surfaces.** `openapi.yaml` generates `agents/tools.json`, and the MCP server and the CLI are both built from that catalog — so an agent cannot call a path the contract does not publish. `npm run build:agents` regenerates it and `npm run check` fails the build on drift.
+2. **All three surfaces carry the card routes.** All 53 `/v1` operations are here, including the 11 `card` tools; the Node SDK has a typed method for every one of them.
+3. **The annotations cover both modes.** Reads carry `readOnlyHint: true`; writes carry a conservative `destructiveHint: true` because they can change business data. The API still decides which live operations are available.
+4. **MCP writes require a stable retry key.** Every write except `askAssistant` requires an explicit `idempotency_key`. Save it before calling and reuse it with identical arguments after a timeout. The CLI generates a key if omitted and prints it to stderr.
+5. **The key is read from the environment on every call.** Rotate it without restarting the server; it is never a flag, never a tool argument, never a log line, and `ffk_test_REPLACE_ME` still returns `401 invalid_api_key`.
+6. **A key pasted into a prompt is already exposed.** Say so first, then rotate — that is a rule for the agent too.
+7. **Pipe stdout, not stderr.** The response body JSON goes to stdout; the status line and request id go to stderr. Exit `0` is 2xx, `1` is an API or network error, `2` is a usage or config error.
+8. **Reuse the operation key on retries.** Pass `idempotency_key` (MCP) or `--idempotency-key` (CLI); the same key with a different body is `422 idempotency_key_reused`. Tool results return the key even on network failure.
+9. **Pay pages are not tools.** `/sandbox/pay/:token` and `/sandbox/l/:token` return HTML; hand the customer the `hosted_url` from a charge or payment-link response instead.
+10. **Webhooks are inbound.** Verify the raw bytes and deduplicate the event before fulfilment; a browser redirect is not payment confirmation. The contract publishes the event catalog and payload schemas.
+11. **Money-out stays guarded.** Transfers, payouts and FX trades appear in the catalog as simulations; the step-up / PIN guard for live money-out is not weakened by this package.
+
+## One contract, and why an agent cannot drift from it
+
+Every surface below is a *derived* artifact. That is the whole safety argument: a tool that calls an
+undocumented path cannot be built, because the generator has no such path to emit.
+
+```mermaid
+flowchart LR
+  S["openapi.yaml + api/services.openapi.json<br/>53 operations, 42 error codes"] -->|"npm run build:agents"| T["agents/tools.json<br/>generated catalog"]
+  T --> M["MCP server (stdio, JSON-RPC 2.0)<br/>53 tools; explicit retry keys on writes"]
+  T --> L["CLI<br/>stdout = body JSON, stderr = status + request id"]
+  S -->|"hand-written, same contract"| N["Node SDK<br/>53 of the 53 methods, cards included"]
+  S --> P["Postman collection + sandbox environment"]
+  M --> R["https://api.firstflip.ng/v1<br/>key mode, scopes and service gates"]
+  L --> R
+  N --> R
+  P --> R
+  K["FIRSTFLIP_SECRET_KEY in the environment"] -->|"read on every call, never a flag or argument"| M
+  K --> L
+  M -->|"every write except askAssistant"| I["explicit Idempotency-Key<br/>same key + different body = 422 idempotency_key_reused"]
+  R -.->|"npm run check fails the build"| D["drift between contract and catalog"]
+```
+
+`askAssistant` is the single write that takes no key of its own — it is a question, not a record. Everything
+else that can create a row requires a stable key in MCP, so an agent can retry a call whose result was lost
+without creating another operation.
+
+## What is shipped
+
+| Package | What it is | Where |
+|---|---|---|
+| `@firstflip/agents` | A zero-dependency stdio MCP server + a zero-dependency CLI, both generated from the contract. | `agents/` |
+| `@firstflip/node` | The typed Node.js client (one method per API-key operation — **53 of the 53** — with safe retries and webhook verification). The 11 virtual-card routes are `firstflip.cards.*` here too. | `sdks/node/` |
+| Postman collection + environment | One-click import, environment variable for the key, a walkthrough. | `postman/` |
+
+The MCP server and the CLI share one generated catalog, `agents/tools.json`. That file is the
+contract in agent-friendly shape: every tool's name, description, input schema and scope are
+derived from `openapi.yaml` + `api/services.openapi.json`. A tool that calls a path the contract
+does not publish cannot exist — the catalog is regenerated by `npm run build:agents` and the
+`check` script fails the build if it drifts.
+
+## The MCP server
+
+A stdio MCP server (JSON-RPC 2.0, newline-delimited) that exposes the 53 API-key operations as
+tools — the published `/v1` surface a key can call, including all 11 card routes and their Node SDK
+methods. Every tool carries the scope it needs (`x-required-scope`), a full
+description, a JSON Schema input, and honest annotations:
+
+- `readOnlyHint` is `true` for `GET` operations, `false` for writes.
+- `idempotentHint` is `true` for keyed writes; `idempotency_key` is required for the same logical request.
+- `destructiveHint` is conservatively `true` for writes and `false` for reads, across both key modes.
+
+### Configuration (environment)
+
+| Variable | Required | Default |
+|---|---|---|
+| `FIRSTFLIP_SECRET_KEY` | yes, to call a tool | — |
+| `FIRSTFLIP_BASE_URL` | no | `https://api.firstflip.ng/v1` |
+| `FIRSTFLIP_TIMEOUT_MS` | no | `30000` |
+
+The key is read from the environment on every call, so rotating it does not need a server restart.
+The key is never logged, never echoed in an error, never accepted as a tool argument.
+
+### Claude Code
+
+Add to your project's `.mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "firstflip": {
+      "command": "node",
+      "args": ["node_modules/@firstflip/agents/mcp-server.js"],
+      "env": {
+        "FIRSTFLIP_SECRET_KEY": "ffk_test_…"
+      }
+    }
+  }
+}
+```
+
+### Codex
+
+Add to your `config.toml`:
+
+```toml
+[mcp_servers.firstflip]
+command = "node"
+args = ["node_modules/@firstflip/agents/mcp-server.js"]
+env = { FIRSTFLIP_SECRET_KEY = "ffk_test_…" }
+```
+
+### Generic stdio client
+
+Any MCP client that speaks JSON-RPC 2.0 over stdio (newline-delimited) works: spawn the server,
+send `{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25"}}`,
+then `tools/list` and `tools/call`.
+
+Supported protocol versions are `2025-11-25`, `2025-06-18`, `2025-03-26` and `2024-11-05`.
+An unknown requested version receives the newest supported version, so the client can disconnect
+if it does not support that version. Tool calls need a request ID; notifications never execute a tool.
+
+## The CLI
+
+```bash
+export FIRSTFLIP_SECRET_KEY=ffk_test_…
+firstflip list                              # every operation: name, method, path, scope
+firstflip describe createCharge             # full schema + a published example body
+firstflip call createCharge --body '{"amount":25000,"currency":"NGN"}'
+firstflip getCharge --id ch_…               # bare operation name works too
+```
+
+Flags for a call:
+
+- `--<param> <value>` — path or query parameter (`--id`, `--limit`, `--status`, …).
+- `--body '<json>'` or `--body-file <path>` (or `-` for stdin) — the request body.
+- `--idempotency-key <k>` — reuse a key to retry the same logical write safely.
+- `--base-url <url>` — override the sandbox base (https only, except localhost).
+- `--timeout-ms <n>` — request timeout.
+
+Output is machine-readable: the response body JSON on stdout (pipeable), the status line and the
+request id and write's `idempotency_key` on stderr. Exit codes: `0` for 2xx, `1` for an API/network error, `2` for a
+usage/config error.
+
+## The safety rules (enforced, not aspirational)
+
+1. **The key never leaves the environment.** It is not a flag, not a tool argument, not a log line.
+   A key pasted into chat is exposed — say so first, then rotate.
+2. **Mode comes from the key.** Test keys simulate supported operations. Live keys still pass the
+   API's verification, scopes, account controls and operation-specific service gates. The connector
+   does not bypass those gates or promise that every operation is live.
+3. **Retries keep the same operation.** MCP requires an explicit `idempotency_key` for writes.
+   The CLI can generate one and prints it. Save and reuse it with identical arguments after an
+   ambiguous result. The same key with a different body is rejected (`422 idempotency_key_reused`).
+4. **The contract is the only source of truth.** The catalog is generated from `openapi.yaml`;
+   the MCP server and the CLI cannot call a path the contract does not publish.
+5. **Errors are canonical.** Every failure comes back with the same shape
+   (`{error:{type,code,message,param}}`) and the same machine-readable codes. The CLI prints
+   them; the MCP server returns them as `isError: true` with the full payload.
+
+## When something fails
+
+| HTTP | Code | What it means |
+|---|---|---|
+| `401` | `invalid_api_key` | The key is wrong, revoked, or still `ffk_test_REPLACE_ME`. |
+| `401` | `key_expired` | The key is real but past its expiry date. Mint a successor — this is not a breach. |
+| `403` | `insufficient_scope` | The key lacks the scope the operation needs. Mint a new key with the right scope. |
+| `403` | `live_mode_unavailable` | You used a live key on a surface whose live rails are not open (or on the card authorization simulator, which is test-only by design). Use `ffk_test_…`. |
+| `403` | `live_precondition_unmet` | A live card leg is waiting on a named platform rail and `error.param` says which one. Nothing was changed and no money moved. |
+| `404` | `not_found` | The resource does not exist (or the Developer API is not switched on). |
+| `409` | `duplicate_reference` | A charge with that `reference` already exists. |
+| `422` | `idempotency_key_reused` | You reused an `Idempotency-Key` with a different body. |
+| `429` | `rate_limited` | Back off; honor `Retry-After` (seconds). |
+| `503` | `service_unavailable` | Retry with the same `Idempotency-Key` after `Retry-After`. |
+
+## What is NOT in this package
+
+- **Money-out paths** (transfers, payouts, FX trades) are in the catalog, but they are
+  **simulated** in test mode. The server's step-up / PIN guard for live money-out is unchanged
+  and is not weakened by this package.
+- **Hosted pay / landing pages** (`/sandbox/pay/:token`, `/sandbox/l/:token`) are browser
+  endpoints. They return HTML, not JSON, and are not exposed as agent tools. The `hosted_url`
+  in a charge or payment-link response is what you hand to the customer.
+- **Webhooks** are inbound, not requests. The contract publishes the event catalog and the
+  signature algorithm; this package does not need to call webhooks.
+- **Airtime, gift-card sales and gadget-store orders** are not operations in this published catalog.
+  Their presence in a consumer app does not make them available to business API keys.
+
+## Discovery and portable skill
+
+The public documentation includes [llms.txt](knowledge.md), [full guide context](knowledge.md),
+a machine-readable capability manifest and the
+[FirstFlip integration skill](../SKILL.md). The skill includes the same
+contracts, tool catalog and guide bundle, with source fingerprints, and is also included under
+`node_modules/@firstflip/agents/skills/firstflip-integration` in the npm package.
+
+These are public integration resources. A caller still needs their own business API key; installation
+does not create an account, approve KYC/KYB or switch on a live capability. This package exposes a local
+stdio process, not an unauthenticated remote HTTP endpoint.
+</guide>
+
+<a id="guide-webhooks"></a>
+<guide name="webhooks">
+# Webhooks
+
+When something happens to a charge, a card or one of the sandbox services, FirstFlip `POST`s an **event**
+to each webhook endpoint you added for that mode (test events go to test endpoints, live to live).
+
+## Quick hints
+
+1. **Verify the bytes, then parse.** The signature covers the raw body; parsing and re-serialising it — or
+   letting a framework re-encode it — breaks the check even on a genuine delivery.
+2. **A `2xx` inside 10 seconds is the entire job.** Anything slower, any error status, any timeout is a
+   failed attempt, and the retry ladder is the only repair: 8 attempts over about 2 days.
+3. **The same event can arrive twice, and out of order.** Store `event.id` and ignore repeats; where order
+   matters, re-read the object and trust its `status` rather than the sequence of deliveries.
+4. **A card decline is an event, not an error.** `simulate_authorization` answers `201` whether the swipe was
+   approved or refused, so a handler that only watches HTTP statuses never sees the refusal.
+5. **`livemode` is `false` in every event today** — the contract publishes it as a constant. Branch on it if
+   you like, but do not wait for a live event to make the branch interesting: cards and the services sandbox
+   emit test events only, because those surfaces are test-only.
+6. **Every event body is described by the contract.** `data.object` is a union of 8 schemas and each of the 28
+   published types resolves into exactly one of them — the 9 `card.*` ones included. Lifecycle events carry the
+   `card`; money and authorization events carry the `card_transaction`. See
+   [What a card event carries](#what-a-card-event-carries).
+7. **The endpoint rules are hard refusals, not preferences:** `https` on port 443, a public host, no
+   credentials in the URL, at most 5 endpoints per mode, each secret shown once.
+8. **Rotating a secret is add-then-delete, never edit.** Add the new endpoint, deploy its secret, verify
+   deliveries, then remove the old endpoint — there is no in-place rotation, so a mistaken delete does not
+   break a live handler.
+
+## Events
+
+| Type | When | What to do |
+|---|---|---|
+| `charge.paid` | The customer paid in full | Fulfil the order |
+| `charge.cancelled` | You cancelled a pending charge | Release any hold |
+| `charge.expired` | A pending charge passed `expires_at` unpaid | Release any hold; create a new charge if the customer returns |
+
+`charge.expired` is sent within about a minute of `expires_at` (and at once if the charge is read after
+it expires). If you need a hard cut-off, check `expires_at` yourself.
+
+## Events from the services sandbox
+
+The services sandbox (payouts, FX, virtual accounts, BVN) is test mode only and emits the same kind of
+event:
+
+| Type | When |
+|---|---|
+| `transfer.pending`, `transfer.successful`, `transfer.failed` | You [simulated a transfer](#guide-payouts) into that state |
+| `fx.quote.processing`, `fx.quote.ready`, `fx.quote.expired`, `fx.quote.failed` | A quote changes state, or an unpaid quote passes its expiry |
+| `fx.trade.pending`, `fx.trade.settled`, `fx.trade.failed` | A trade changes state |
+| `virtual_account.payment.successful`, `virtual_account.payment.failed`, `virtual_account.payment.reversed` | A simulated payment into a virtual account changes state |
+| `bvn.verified`, `bvn.declined`, `bvn.failed` | A BVN verification resolves |
+
+`data.object` is the object that changed (`transfer`, `fx_quote`, `fx_trade`, `virtual_account_payment`
+or `bvn_verification`). Signature, headers, retries and deduplication are the same as for charge events.
+
+## Events from virtual cards (test mode)
+
+The sandbox card surface emits nine events. All of them are test-mode events — there are no live card
+events, because there are no live cards (see [Virtual cards](#guide-cards)).
+
+| Type | `data.object` | When |
+|---|---|---|
+| `card.created` | `card` | A card was issued with `POST /v1/cards` |
+| `card.funded` | `card_transaction` | `fund` moved money onto the card, so `amount` and `balance_after` are in the event |
+| `card.withdrawn` | `card_transaction` | `withdraw` moved money off the card — same payload shape as `card.funded` |
+| `card.frozen` | `card` | The card moved to `frozen` (`freeze`, or a freeze you simulate) |
+| `card.unfrozen` | `card` | A frozen card moved back to `active` (`unfreeze`) |
+| `card.closed` | `card` | The card moved to `closed` (`close`) — terminal, no event can undo it |
+| `card.limits.updated` | `card` | `spend_limits` changed the daily, per-transaction or monthly cap |
+| `card.authorization.approved` | `card_transaction` | A simulated authorization passed every rule |
+| `card.authorization.declined` | `card_transaction` | A simulated authorization was refused — read `decline_code` for which rule fired |
+
+Signature, headers, retries and deduplication are identical to the events above: verify
+`FirstFlip-Signature` over the raw body, deduplicate on `FirstFlip-Event-Id`, answer `2xx` fast.
+
+**A decline arrives as an event, not as an error.** `simulate_authorization` answers `201` whether the
+authorization was approved or declined, so an integration that only watches HTTP statuses never sees the
+decline at all. Handle `card.authorization.declined`, or read `status` and `decline_code` off the
+transaction.
+
+### What a card event carries
+
+`data.object` is the object itself, built by the same serializer that answers `GET /v1/cards/{id}` and
+`GET /v1/cards/{id}/transactions`. A `card.*` delivery therefore validates against the schema the reference
+already publishes: `card` for the five lifecycle types, `card_transaction` for the four money and
+authorization types — the same fields, the same ids, no extra wrapper.
+
+Two consequences, worth knowing before the handler is written:
+
+1. **A fund or a withdrawal is its own ledger row.** `card.funded` and `card.withdrawn` carry the row the
+   call returned, so `amount`, `balance_before`, `balance_after` and, for a decline, `decline_code` are
+   already in the body. The row is the record; the delivery is the notice that it exists.
+2. **`created_at` is when the change happened, not when the delivery landed.** An event the platform could
+   not record first time is re-driven later under the same `event.id`, keeping its original `created_at` —
+   and the object it carries is the row as it stands when the event is finally recorded. So a late
+   `card.frozen` can describe a card that has since been unfrozen. Where current state matters, re-read the
+   card and trust its `status`.
+
+Deduplication stays your job either way: deliveries are at-least-once, so the same `event.id` can arrive
+twice, and out of order.
+
+## The request
+
+```http
+POST /your/webhook/path HTTP/1.1
+Content-Type: application/json
+User-Agent: FirstFlip-Webhooks/1.0
+FirstFlip-Event-Id: evt_3b1f0c9a8e7d6c5b4a392817
+FirstFlip-Event-Type: charge.paid
+FirstFlip-Signature: t=1790000000,v1=5257a869e7ecebeda32affa62cdca3fa51cad7e77a0e56ff536d0ce8e108d8bd
+
+{"id":"evt_3b1f0c9a8e7d6c5b4a392817","object":"event","type":"charge.paid","livemode":false,
+ "created_at":"2026-09-28T12:04:11.000Z","data":{"object":{ …the charge… }}}
+```
+
+`data.object` is the full [charge](#guide-charges) as it was when the event happened.
+
+## Verify every request
+
+The signature proves the request came from FirstFlip and was not changed or replayed.
+
+1. Read the **raw** request body. Do not parse and re-serialise it; any byte change breaks the signature.
+2. From `FirstFlip-Signature`, take `t` (unix seconds) and `v1` (hex).
+3. Compute `HMAC-SHA256(key = your endpoint secret, message = t + "." + raw body)`, hex-encoded.
+4. Compare it with `v1` in constant time.
+5. Reject if `t` is more than 5 minutes from your clock (replay protection).
+
+Three implementations of exactly those five steps. Open the one you run — they are equivalent, and none of
+them is longer than the rule above.
+
+<details>
+<summary><strong>Node.js (Express)</strong> — the verifier and the one raw-body route that uses it.</summary>
+
+```js
+const crypto = require('node:crypto');
+const express = require('express');
+const app = express();
+
+function verifyFirstFlip(secret, rawBody, header, toleranceSec = 300) {
+  const parts = Object.fromEntries(String(header || '').split(',').map((p) => p.split('=')));
+  const t = Number(parts.t);
+  if (!Number.isInteger(t) || !parts.v1) return false;
+  if (Math.abs(Math.floor(Date.now() / 1000) - t) > toleranceSec) return false;
+  const expected = crypto.createHmac('sha256', secret).update(`${t}.${rawBody}`).digest('hex');
+  const a = Buffer.from(expected, 'hex');
+  const b = Buffer.from(parts.v1, 'hex');
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+
+// express.raw keeps the exact bytes for this route only.
+app.post('/webhooks/firstflip', express.raw({ type: 'application/json' }), (req, res) => {
+  const raw = req.body.toString('utf8');
+  if (!verifyFirstFlip(process.env.FIRSTFLIP_WEBHOOK_SECRET, raw, req.get('FirstFlip-Signature'))) {
+    return res.sendStatus(400);
+  }
+  const event = JSON.parse(raw);
+  // Dedupe on event.id, then act. Respond fast; do slow work in a queue.
+  if (event.type === 'charge.paid') { /* fulfil event.data.object.reference */ }
+  res.sendStatus(200);
+});
+```
+
+</details>
+
+<details>
+<summary><strong>Python (Flask)</strong> — the same five steps, with <code>request.get_data()</code> for the exact bytes.</summary>
+
+```python
+import hashlib, hmac, os, time
+from flask import Flask, request, abort
+
+app = Flask(__name__)
+
+def verify_firstflip(secret: str, raw_body: bytes, header: str, tolerance: int = 300) -> bool:
+    try:
+        parts = dict(p.split("=", 1) for p in (header or "").split(","))
+        t = int(parts["t"])
+        v1 = parts["v1"]
+    except (KeyError, ValueError):
+        return False
+    if abs(int(time.time()) - t) > tolerance:
+        return False
+    expected = hmac.new(secret.encode(), f"{t}.".encode() + raw_body, hashlib.sha256).hexdigest()
+    return hmac.compare_digest(expected, v1)
+
+@app.post("/webhooks/firstflip")
+def firstflip_webhook():
+    raw = request.get_data()  # exact bytes
+    if not verify_firstflip(os.environ["FIRSTFLIP_WEBHOOK_SECRET"], raw, request.headers.get("FirstFlip-Signature", "")):
+        abort(400)
+    event = request.get_json()
+    if event["type"] == "charge.paid":
+        pass  # fulfil event["data"]["object"]["reference"]
+    return "", 200
+```
+
+</details>
+
+<details>
+<summary><strong>PHP</strong> — <code>php://input</code> plus <code>hash_equals</code>, no framework needed.</summary>
+
+```php
+<?php
+function verify_firstflip(string $secret, string $rawBody, string $header, int $tolerance = 300): bool {
+    $parts = [];
+    foreach (explode(',', $header) as $p) {
+        [$k, $v] = array_pad(explode('=', $p, 2), 2, null);
+        $parts[$k] = $v;
+    }
+    if (!isset($parts['t'], $parts['v1']) || !ctype_digit($parts['t'])) return false;
+    $t = (int) $parts['t'];
+    if (abs(time() - $t) > $tolerance) return false;
+    $expected = hash_hmac('sha256', $t . '.' . $rawBody, $secret);
+    return hash_equals($expected, $parts['v1']);
+}
+
+$raw = file_get_contents('php://input');
+if (!verify_firstflip(getenv('FIRSTFLIP_WEBHOOK_SECRET'), $raw, $_SERVER['HTTP_FIRSTFLIP_SIGNATURE'] ?? '')) {
+    http_response_code(400);
+    exit;
+}
+$event = json_decode($raw, true);
+http_response_code(200);
+```
+
+</details>
+
+## Respond, retries, duplicates
+
+```mermaid
+flowchart TD
+    E["something happens to a charge, a card or a sandbox object"] --> S["FirstFlip POSTs the signed event<br/>to every endpoint registered for that mode"]
+    S --> V{"your handler answers<br/>2xx within 10 seconds?"}
+    V -->|"yes"| D["delivered — done"]
+    V -->|"4xx, 5xx, timeout, reset"| R["retry ladder<br/>1 min · 5 min · 30 min · 2 h · 6 h · 12 h · 24 h"]
+    R -->|"same event id, up to 8 attempts<br/>over about 2 days"| V
+    R -->|"ladder exhausted"| L["the delivery log names why:<br/>http_500 · timeout · dns_failed · tls_failed ·<br/>connection_failed · non_public_address ·<br/>endpoint_disabled · secret_unavailable"]
+    L -.->|"ask FirstFlip to resend<br/>(beta: we also show you the log)"| S
+    D --> H["your side: dedupe on event id,<br/>then act — slowly, in a queue"]
+```
+
+- Return any **2xx within 10 seconds**. Anything else (or a timeout) is a failed attempt.
+- Failed attempts are retried after 1 min, 5 min, 30 min, 2 h, 6 h, 12 h and 24 h (8 attempts over
+  about 2 days). During the beta, ask FirstFlip to resend an event or show the delivery log.
+- Delivery is **at least once**: the same event can arrive more than once. Store `event.id` and ignore
+  repeats.
+- Events can arrive **out of order**. If order matters, fetch the charge (`GET /v1/charges/:id`) and
+  trust its `status`.
+- Redirects are not followed. Point the endpoint at the final URL.
+- Only your status code matters; we don't read the response body.
+- The delivery log shows why an attempt failed: `http_<status>`, `timeout`, `dns_failed`, `tls_failed`,
+  `connection_failed`, `non_public_address`, `endpoint_disabled`, or `secret_unavailable` (a fault on
+  our side; the attempt is retried).
+
+## Endpoint rules
+
+- `https` on the standard port (443), a public host (no `localhost`, private or internal addresses), no
+  credentials in the URL.
+- Up to 5 endpoints per mode. Each has its own secret, shown only once. To rotate, add a new endpoint,
+  deploy its secret, then delete the old one.
+- During the beta, send us your URL: we register the endpoint and send you its secret privately. To
+  rotate, send us the new URL, deploy its secret, then ask us to remove the old endpoint.
+
+To test locally, expose your machine with a tunnel and send us the https URL it gives you to register
+as a **test** endpoint.
+</guide>
+
+<a id="guide-idempotency-and-errors"></a>
+<guide name="idempotency-and-errors">
+# Idempotency and errors
+
+## Quick hints
+
+Read in order — the first one that matches your call is the whole answer.
+
+1. **Every POST needs `Idempotency-Key`.** A `400 idempotency_key_required` is a missing header, not a bad body, and it fires before your body is read.
+2. **Branch on `code`, never on `message`.** `code` is stable and is what [the OpenAPI catalogue](openapi.yaml) publishes under `x-error-codes`; `message` is prose and may change.
+3. **A saved `4xx` replays.** After a refusal, the same key + the same body returns the *same* refusal. Fix the body **and** use a new key — a changed body under an old key is `422 idempotency_key_reused`.
+4. **Only `5xx` releases the key.** A `failed` state means nothing was saved, so retry with the same key. `completed` means the answer is stored even when the money has not moved — follow the object, don't resend.
+5. **Retry exactly these:** network errors, `409 idempotency_in_progress`, `429`, `500`, `503`. Every other 4xx fails identically no matter how many times you send it.
+6. **`403` never answers "does this exist".** Rungs before the lookup refuse first, so a wrong id on a refused route still returns the `403`. A `404` is the first answer that actually looked at the resource. See [Authentication](#guide-authentication).
+7. **`404` on another business's id is correct.** Ids do not cross businesses or modes; a missing-looking id is usually the other mode's key.
+8. **Quote `Request-Id` when you ask us.** One UUID per request, on success and error alike; it is the exact line in our logs. A value you send is ignored.
+9. **Nothing here is cacheable.** Every response says `Cache-Control: no-store` — balances and account data must not sit in a proxy.
+
+## What to do when a call fails
+
+The first question is never "which code" — it is "may I send this again, and with which key".
+
+```mermaid
+flowchart TD
+    A["a call came back<br/>not a 2xx"] --> B{"did it reach<br/>the key layer?"}
+    B -->|"no: 400 idempotency_key_required<br/>or a 503 before the API was up"| C["add the header / wait for the service<br/>these answers carry no Idempotency-* headers"]
+    B -->|"yes"| D["read Idempotency-Key-State"]
+    D -->|"failed<br/>(a 5xx was not saved)"| E["same key, same body<br/>back off and retry"]
+    D -->|"pending<br/>(409 in_progress)"| F["same key, wait<br/>a new key would run it twice"]
+    D -->|"completed"| G{"is it replayable?"}
+    G -->|"yes: 429, 500, 503"| H["same key after Retry-After<br/>Idempotent-Replayed: true tells you<br/>the operation did not run again"]
+    G -->|"no: a 4xx was saved"| I{"fix what param named<br/>and mint a NEW key"}
+    I --> J["2xx, or the outcome itself"]
+    G -->|"no: 2xx but still open<br/>(a processing payout)"| K["do not resend.<br/>poll the object or take the webhook"]
+```
+
+## Idempotency-Key (required on every POST)
+
+Networks fail. A request can succeed on our side while the response is lost on the way back to you. An
+`Idempotency-Key` makes a retry safe: we run the operation once and hand every retry the same result.
+
+```http
+Idempotency-Key: 7f1c0b9e-5d2a-4c6e-9a51-2b8f0e3d4c71
+```
+
+- Generate one key per **operation** (a UUID v4 works). Reuse it only to retry that same operation.
+- Same key + same request → the original response, with the header `Idempotent-Replayed: true`.
+- Same key + a **different** request → `422 idempotency_key_reused`. Nothing happens.
+- Same key while the first request is still running → `409 idempotency_in_progress`. Wait and retry.
+- Results are kept for 24 hours. A 5xx result is not kept, so retrying after a server error runs the
+  operation again.
+- Key order in the JSON body doesn't matter: `{"a":1,"b":2}` and `{"b":2,"a":1}` are the same request.
+- Keys are private to your business and mode; another business using the same value is unaffected.
+
+### What the key actually did — read it from the headers
+
+A retry can arrive before the first request finished, or after it failed, so the headers on every keyed
+answer tell you what happened. They are on every `2xx`, `409` and `422` that went through the key layer,
+and they are declared in the OpenAPI files so a validator can assert them.
+
+| Header | Sent | Values | Meaning |
+|---|---|---|---|
+| `Idempotency-Status-Version` | always | `1` | Read it first; a later version can add headers without breaking you |
+| `Idempotent-Replayed` | always | `true` / `false` | `true`: this is the saved answer replayed — the operation did **not** run again |
+| `Idempotency-Key-State` | always | `completed` / `pending` / `failed` | The key's state **after** this answer |
+| `Idempotent-Original-At` | replay only | ISO 8601 | When the saved answer was stored |
+| `Idempotency-Reference` | replay, when the answer has a receipt | string | The `reference` of the saved answer |
+
+What each state means for your next move:
+
+- **`completed`** — the answer is saved; a retry with this key gets this same response back with
+  `Idempotent-Replayed: true`. A `4xx` that reached the key layer is saved the same way, so the key returns
+  the same refusal. A `2xx` is `completed` even when its body says the outcome is still open (a payout that is
+  `processing`, for example): the receipt exists, the money may still move — follow the object, don't resend.
+- **`pending`** — another request with this key is still running (`409 idempotency_in_progress`). Wait and
+  retry with the same key; a new key would start a second operation.
+- **`failed`** — the answer was a `5xx`, so nothing was saved and the key was released. Retry with the same key;
+  the operation runs again.
+
+Answers that never reached the key layer carry none of these headers: `400 idempotency_key_required` (you sent
+no key) and a `503` raised before the API is up (see below).
+
+## Error shape
+
+Every error has the same shape:
+
+```json
+{
+  "error": {
+    "type": "invalid_request_error",
+    "code": "amount_too_small",
+    "message": "The minimum charge is 5000 NGN",
+    "param": "amount"
+  }
+}
+```
+
+Branch on `code`, which is stable. `message` is for humans and may change. `param` names the field at
+fault when there is one.
+
+Every response — success or error — also carries a `Request-Id` header: a UUID for that one request.
+Quote it when you contact support about a failure; it identifies the exact request in our logs. A value
+you send is ignored. It is declared `required` in the OpenAPI files, so a validator can assert it, and
+every response is also marked `Cache-Control: no-store` (account data and balances must never sit in a
+cache). Success responses declare the same headers as errors: the rate-limit pair on anything a limiter
+saw — a `503` raised before the limiters (API or database down) is the one shape that may omit it — and
+`Retry-After` on every `429` and every `503`. Read `code`, not `Retry-After`, to decide whether retrying
+can help: `assistant_disabled` will not clear on its own.
+
+| HTTP | `code` | What to do |
+|---|---|---|
+| 400 | `invalid_parameter` | Fix the field named in `param` |
+| 400 | `amount_too_small` | Raise the amount (the message has the current minimum) |
+| 400 | `idempotency_key_required` | Add the header (error type `idempotency_error`) |
+| 400 | `question_required`, `question_too_long` | `POST /v1/assistant` only: the question must be 1–2,000 characters, and `param` is `question` |
+| 400 | `invalid_json` | Send a valid JSON body with `Content-Type: application/json` |
+| 400 | `invalid_otp`, `account_not_found` | The OTP is wrong (an attempt is used) · the destination is not a documented test account |
+| 400 | `insufficient_balance` | Cards: the withdrawal asks for more than the card holds (the fault is on amount). Nothing moved; re-read the card for its balance |
+| 401 | `invalid_api_key` | Check the key; it may be revoked |
+| 401 | `key_expired` | This key reached its `expires_at`. Create a new one, or rotate before the date next time — see [Authentication](#guide-authentication) |
+| 403 | `ip_not_allowed`, `business_inactive`, `live_mode_unavailable` | See [Authentication](#guide-authentication) |
+| 403 | `insufficient_scope` | The key does not carry the scope this route needs; mint one that does |
+| 403 | `api_access_paused` | FirstFlip paused API access for this business; contact support to resume it |
+| 403 | `live_precondition_unmet` | Cards only, today: this live leg waits on a FirstFlip rail, and `param` names it (`cardholder`, `funding`, `withdrawal`, `settlement`, `limit_format`, `transaction_sync`, or `provider`). Nothing moved — run the leg on a test key |
+| 404 | `resource_missing`, `not_found` | Wrong id or path. Another business's ids always look missing. |
+| 409 | `idempotency_in_progress` | Retry shortly with the same key. The resource-specific 409s are folded below. |
+| 413 | `body_too_large` | Keep request bodies under 64 KB |
+| 422 | `idempotency_key_reused` | Use a new key for a new operation |
+| 429 | `rate_limited` | Slow down; wait `Retry-After` seconds |
+| 503 | `rate_unavailable`, `service_unavailable`, `verification_unavailable` | Rates, FirstFlip or the identity check are briefly unavailable; retry with the same key after `Retry-After` |
+| 503 | `pricing_unavailable` | OTP pricing is briefly unavailable; retry later |
+| 503 | `assistant_unavailable` | The assistant's model provider failed; retry, or read the page that answers your question |
+| 503 | `assistant_disabled` | The developer assistant is switched off; do not retry until it is enabled |
+| 500 | `internal_error` | Retry with the same key; contact us if it persists |
+
+<details>
+<summary><strong>409s by resource</strong> — the object moved on, your reference already exists, or a ceiling is
+full. 8 codes, each with one repair.</summary>
+
+| HTTP | `code` | What to do |
+|---|---|---|
+| 409 | `duplicate_reference` | You already have a charge with this `reference`; fetch it with `?reference=` |
+| 409 | `charge_not_pending` | The charge already finished; fetch it for its final status |
+| 409 | `card_closed` | That card is closed, and `closed` is terminal — issue a new one. Nothing moved |
+| 409 | `card_not_active` | Cards: the card is frozen and only an active card can be withdrawn from; unfreeze it first |
+| 409 | `card_limit_reached` | Cards: this key already holds its **250 open cards** (`param: cards`). Close one — a closed card frees its slot — then issue again |
+| 409 | `quote_not_ready`, `quote_already_used`, `trade_not_pending` | FX state moved on; request a fresh ready quote or fetch the trade |
+| 409 | `account_inactive`, `transfer_not_pending`, `verification_not_pending`, `otp_not_pending`, `subaccount_not_active`, `subaccount_not_suspended` | That object already left the state you are acting on (a concurrent call got there first); fetch it and read its `status` — suspend and activate are idempotent, so a retry answers `200` |
+| 409 | `bvn_not_verified` | The BVN check is missing, unverified, expired, or does not match the customer's name |
+
+Every row here is the same shape: **the refusal is about state, not about your request.** Resending it unchanged
+cannot help; fetching the object and reading its `status` always can. None of them moved money.
+
+</details>
+
+## Rate limits
+
+Per key: **300 reads** and **60 writes** per minute. Over the limit you get `429` with
+`Retry-After` and `X-RateLimit-*` headers. Back off and retry.
+
+## Retry policy we recommend
+
+Retry on network errors, `409 idempotency_in_progress`, `429`, `500` and `503`, always with the
+**same** Idempotency-Key, using exponential backoff (1 s, 2 s, 4 s … up to about a minute). Do not retry
+other 4xx errors unchanged; they will fail the same way.
+</guide>
+
+<a id="guide-testing"></a>
+<guide name="testing">
+# Testing
+
+## Quick hints
+
+Ranked worst-first. Every one is checkable against this page, the [webhooks guide](#guide-webhooks), or the spec.
+
+1. **Fulfil from the webhook, never from the redirect.** A customer who pays and closes the tab has still paid;
+   a redirect you never receive is the most expensive bug in this list.
+2. **The sandbox object is real — only the money is fake.** Quotes carry live rates and the real fee and minimum,
+   so a shape bug you find here is a bug you already had.
+3. **Three different things produce a sandbox outcome, and only one is a call you make:** `scenario` at create,
+   `POST …/simulate`, or a value handed straight back to you (`sandbox.code` on an OTP). Waiting on the wrong
+   one makes a passing test look like a hang.
+4. **Act on the event, not on the simulate response.** `POST /v1/fx/trades/:id/simulate` answers before
+   `fx.trade.settled` reaches your handler; the handler is the truth.
+5. **Deduplicate on `FirstFlip-Event-Id`.** A resend is normal, not a bug — and an unguarded handler fulfils
+   twice.
+6. **Verify the signature before you parse the body.** Recompute HMAC-SHA256 over `"<t>.<raw body>"`, compare in
+   constant time, reject a `t` older than 5 minutes.
+7. **`429` is a bucket, not a defect.** 300 reads / 60 writes per key per minute in the sandbox and in production,
+   so a fan-out test that trips it has measured your concurrency, not the API.
+8. **No live rail is called from here.** A green sandbox run proves your code and the contract; it proves nothing
+   about a provider's uptime.
+
+## What the sandbox is
+
+Everything you build with a test key (`ffk_test_…`) runs in the **sandbox**:
+
+- Charges are real API objects with real quotes (live rates, the real fee and minimum) but a placeholder
+  address that starts with `TEST-`. **Never send real funds to it.** Nothing watches it.
+- Payment is simulated: press **Simulate payment** on the hosted page, or call
+  `POST /v1/charges/:id/simulate_payment`.
+- Webhooks are real, signed requests to your test endpoints.
+- No money moves, nothing is settled, nothing is billed.
+
+## Services in the sandbox
+
+The provider-backed services (FX, virtual accounts, verifications, OTPs, payouts) never call a live rail. You drive
+each outcome yourself, so every branch your code must handle can be rehearsed:
+
+| Service | How the outcome is produced |
+|---|---|
+| FX quote | `scenario` on create (`ready`, `processing`, `expired`, `invalid_amount`, `invalid_currency_pair`, `exceeded_limit`), or `POST /v1/fx/quotes/:id/simulate` for a `processing` quote |
+| FX trade | `POST /v1/fx/trades/:id/simulate` with `pending`, `settled` or `failed` |
+| Virtual account payment | `POST /v1/virtual_accounts/:id/simulate_payment` with `amount` and `reference`; the account's expected amount decides `successful`, `reversed` or `failed` |
+| BVN verification | `POST /v1/verifications/bvn/:id/simulate` with `verified`, `declined` or `failed` |
+| Bank-account resolution | Three documented test destinations answer; anything else is `400 account_not_found` |
+| Payout | `POST /v1/transfers/:id/simulate` with `pending`, `successful` or `failed` |
+| OTP | Nothing to simulate: the code is returned on create as `sandbox.code` and `delivered` is `false` |
+
+Every outcome above lands the same way: you cause it, it becomes a real object, and the object emits a signed
+event your handler must be able to survive.
+
+```mermaid
+flowchart LR
+    subgraph CAUSE["You cause the outcome"]
+        S1["scenario on create<br/>FX quote"]
+        S2["POST …/simulate<br/>quote · trade · payout · BVN"]
+        S3["POST …/simulate_payment<br/>charge · virtual account"]
+    end
+    subgraph Handed["The API hands it to you"]
+        O1["OTP: sandbox.code on create<br/>delivered: false"]
+        O2["three test destinations resolve<br/>anything else → 400 account_not_found"]
+    end
+    OBJ[("sandbox object<br/>real shape, real quote<br/>no money, no settlement, no bill")]
+    S1 --> OBJ
+    S2 --> OBJ
+    S3 --> OBJ
+    O1 --> OBJ
+    O2 --> OBJ
+    OBJ -->|"signed over the raw body"| EV["event<br/>charge.paid · fx.trade.settled ·<br/>virtual_account.payment.successful"]
+    EV --> H["your handler<br/>verify signature → dedupe on FirstFlip-Event-Id → 2xx inside 10s"]
+    OBJ -.->|"GET is a check, not a trigger"| G["polling your own status<br/>works, and is slower than the event"]
+```
+
+The dashed edge is a hint, not a prohibition: you may poll to reconcile, but a design that fulfils only when a
+`GET` shows the new state will look correct in the sandbox and fall over the first time a customer's payment
+arrives between two polls.
+
+Guides: [FX](#guide-fx), [virtual accounts](#guide-virtual-accounts), [verifications](#guide-verifications),
+[one-time passwords](#guide-one-time-passwords), [payouts](#guide-payouts).
+
+## Checklist before going live
+
+Run each of these against the sandbox:
+
+- [ ] `GET /v1/account` succeeds from your server, with the key read from an environment variable.
+- [ ] Create a charge and redirect to `hosted_url`; simulate payment; your order is fulfilled **from the
+      webhook**, not from the customer's redirect.
+- [ ] Your webhook handler rejects a request with a wrong or missing `FirstFlip-Signature` (send one with
+      `curl` and a made-up header, and expect your 400).
+- [ ] Your handler ignores a duplicate: resend the same event (ask FirstFlip during the beta) and
+      confirm the order is not fulfilled twice.
+- [ ] A cancelled charge (`POST /v1/charges/:id/cancel`) and an expired one (create with
+      `expires_in_minutes: 15`, wait, then fetch it) release the order.
+- [ ] A network timeout on `POST /v1/charges` is retried with the **same** Idempotency-Key and does not
+      create two charges.
+- [ ] Creating a second charge with the same `reference` is handled (`409 duplicate_reference`).
+- [ ] Your handler returns 2xx in under 10 seconds (queue slow work).
+- [ ] Your logs never print the secret key or the webhook secret.
+- [ ] A quote goes `processing` → `ready` and a trade reaches `settled`; your handler acts on `fx.trade.settled`,
+      not on the `simulate` response.
+- [ ] A dynamic virtual account is consumed by its first successful payment and your handler acts on
+      `virtual_account.payment.successful`.
+- [ ] An OTP validates with the sandbox code, and five wrong attempts lock it.
+
+## Postman
+
+Import `postman/FirstFlip-API.postman_collection.json` and `postman/FirstFlip-Sandbox.postman_environment.json`,
+select the *FirstFlip Sandbox* environment, set `secretKey` to your test key, then run *Retrieve the account
+for this key* and *Create a charge*. The created charge's id is saved automatically, so *Retrieve a charge*,
+*Simulate a payment* and *Cancel a pending charge* work straight after.
+
+The services have their own collection, `api/services.postman_collection.json`, with the same environment: quote →
+simulate → trade, a virtual account and its payment, a BVN check, an OTP and a payout batch.
+</guide>
+
+<a id="guide-going-live"></a>
+<guide name="going-live">
+# Going live
+
+**Live mode is not open yet.** This page says what will change when it opens, so you can build for it now.
+
+## Quick hints
+
+Ranked worst-first, each one checkable against this page or the spec:
+
+1. **There is no live key to buy today.** A `ffk_live_…` cannot be minted yet, so write the swap as one config
+   value — a branch in your code that chooses a key is a branch you have never run.
+2. **Cards promote leg by leg, not all at once.** A live key can already `list`, `get`, `freeze` and `unfreeze`; the
+   six money legs answer `403 live_precondition_unmet` naming the rail that is missing, and only the authorization
+   simulator stays test-only. Keep card traffic on `ffk_test_…` until you have read
+   [Live legs](#guide-cards).
+3. **Only the key changes.** Same endpoints, same request and response shapes, same events, same error codes,
+   same per-key buckets (300 reads / 60 writes per minute). If your promotion plan lists anything else, it is
+   describing a rewrite.
+4. **Register the live webhook endpoint before you need it.** Live events go to live endpoints only — a key
+   without an endpoint does not fail loudly, it silently produces events nobody receives.
+5. **`TEST-` is watched by nothing; a live address is not.** Show `asset_amount` and network verbatim and warn
+   that paying on the wrong network can lose funds.
+6. **`simulate_payment` is a sandbox tool, not a live step.** Fulfil from `charge.paid` in both modes and the
+   promotion touches no code.
+
+## The one path, drawn
+
+```mermaid
+flowchart LR
+    subgraph T["Test mode — available now"]
+        TK["ffk_test_… key"]
+        TO["real objects<br/>live rates, real fee<br/>address starts TEST-"]
+        TW["signed webhooks<br/>test endpoints"]
+        TK --> TO --> TW
+    end
+    subgraph L["Live mode — not open yet"]
+        LK["ffk_live_… key"]
+        LO["real address takes real crypto<br/>settled to your bank account<br/>no simulate_payment"]
+        LW["signed webhooks<br/>live endpoints only"]
+        LK --> LO --> LW
+    end
+    TK -->|"swap the key. nothing else"| LK
+    CA["/v1/cards — 11 routes"]
+    CA -.->|"promotes leg by leg, not by switch. four legs run live today; the money legs answer 403 live_precondition_unmet naming the missing rail. live issuing still needs a prefunded balance, verified cardholders and settlement that do not exist."| LK
+```
+
+Read the dashed edge as the boundary: everything on the solid path promotes by configuration, and the card
+resource promotes one leg at a time instead.
+
+## What changes
+
+Only the key. Swap `ffk_test_…` for `ffk_live_…` and add a live webhook endpoint (live events only go to
+live endpoints). Endpoints, request and response shapes, events and error codes stay the same.
+
+In live mode:
+
+- `payment.address` is a real address that receives real crypto, and `hosted_url` is the live payment page.
+- A paid charge is settled to the bank account on your FirstFlip business, in your currency.
+- There is no `simulate_payment`.
+
+## What goes live, and what does not
+
+Cards no longer refuse a live key as one block. The seam answers per leg, so the question is which leg you are on:
+
+| Your key carries | You send | You get |
+|---|---|---|
+| nothing card-shaped | any card route | `403 insufficient_scope` — scopes are checked before the leg runs |
+| `cards:read` or `cards:write`, or an empty scope list | `list`, `get`, `freeze` or `unfreeze` | the live answer: your own cards, and on a freeze the issuer is asked before our row is written |
+| the same scope | create, fund, withdraw, close, set spend limits, list transactions | `403 live_precondition_unmet`, and `error.param` names the rail — `cardholder`, `funding`, `withdrawal`, `settlement`, `limit_format` or `transaction_sync` |
+| the same scope | `simulate_authorization` | `403 live_mode_unavailable` — a live authorization is decided by the issuer, so there is nothing to simulate |
+
+A key minted with an empty scope list carries every scope its mode allows, so it lands in the second row
+rather than the first — the mode is what decides the answer. A `POST` with no `Idempotency-Key` header is refused
+`400 idempotency_key_required` before any of this is reached.
+
+The refusals are deliberate and have no switch — not a flag nobody has flipped on yet: live issuing needs a
+prefunded business balance, a verified cardholder the issuer can register, and per-card settlement, none of which
+exists today. The shapes are already the live shapes, so when a rail lands the only change on your side is that its
+leg stops refusing. Until then, keep the money legs on `ffk_test_…` and build the rest of your go-live plan around it.
+
+## Who can go live
+
+A verified FirstFlip business account with its payout bank account set. Live keys will be created by
+the business owner in the app, when the Developer screen ships.
+
+## Go-live checklist
+
+- [ ] Every item in the [testing checklist](#guide-testing) passes.
+- [ ] The live key is in your production secret store only, never in code.
+- [ ] Your live webhook endpoint is registered and its secret deployed.
+- [ ] You alert on webhook failures (the Developer screen will show failed deliveries when it ships;
+      you can also reconcile daily with `GET /v1/charges?status=paid`).
+- [ ] You show customers the exact `asset_amount` and network, and warn them that sending on the wrong
+      network can lose funds.
+</guide>

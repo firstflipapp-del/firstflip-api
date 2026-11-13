@@ -1,0 +1,16 @@
+{
+  "name": "@firstflip/agents",
+  "version": "0.1.0-beta.2",
+  "description": "FirstFlip API for AI coding agents: a stdio MCP server and a CLI, generated from the published OpenAPI contract",
+  "mcpName": "io.github.firstflipapp-del/firstflip",
+  "main": "lib.js",
+  "bin": {
+    "agents": "mcp-server.js",
+    "firstflip-mcp": "mcp-server.js",
+    "firstflip": "firstflip-cli.js"
+  },
+  "files": ["lib.js", "mcp-server.js", "firstflip-cli.js", "tools.json", "README.md", "LICENSE", "server.json", "skills/firstflip-integration"],
+  "engines": { "node": ">=18" },
+  "scripts": { "test": "node --test test/*.test.js" },
+  "license": "MIT"
+}

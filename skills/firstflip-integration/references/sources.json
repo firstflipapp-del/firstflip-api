@@ -1,0 +1,11 @@
+{
+  "contract_version": "2026-11-02",
+  "package_version": "0.1.0-beta.2",
+  "sha256": {
+    "openapi.yaml": "32b5f0fd8380c581c2c934518215128c2fef84d7d45a9de1d437cf50f85556d1",
+    "api/services.openapi.json": "e1cefa2ea5a0f734b805a93bea5696847d813e8f453f36aa069da8000a3f7780",
+    "agents/tools.json": "0639c5742c571ea68bbb7054a895bde86c3516ca238c8dfe65dea299f0471169",
+    "assistant/knowledge.md": "1a501eedab67d712abf7aa06c31440d58358cee32cdca2afd4bd5a8de1899aad",
+    "LICENSE": "8fd6f14436c73917fd9a80fb74728e5a52faa2b116dc08dab722002cc33771c8"
+  }
+}

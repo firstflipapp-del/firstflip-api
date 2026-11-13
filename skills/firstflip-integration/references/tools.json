@@ -1,0 +1,3198 @@
+{
+  "generatedFrom": [
+    "openapi.yaml",
+    "api/services.openapi.json"
+  ],
+  "contractVersion": "2026-11-02",
+  "baseUrl": "https://api.firstflip.ng/v1",
+  "tools": [
+    {
+      "name": "activateSubAccount",
+      "description": "Activate a sub-account.\n\nReverses a suspension: marks the sub-account `active`. Idempotent — activating an\nalready-active sub-account returns it unchanged. Requires an `Idempotency-Key` header.\n\n\nRequires scope `subaccounts:write` on the business key. Test keys simulate supported operations; live execution depends on business eligibility and enabled service gates.\n\nMCP requires an explicit idempotency_key. Reuse it with identical arguments to retry the same logical request.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The sub-account id (`sa_test_…`).",
+            "examples": [
+              "sa_test_2a3b4c5d6e7f80910a1b2c3d"
+            ]
+          },
+          "idempotency_key": {
+            "type": "string",
+            "maxLength": 255,
+            "description": "Required by MCP writes. One stable key per logical operation; reuse it with identical arguments after a timeout. The CLI generates and prints a key when omitted."
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "method": "POST",
+      "path": "/subaccounts/{id}/activate",
+      "scope": "subaccounts:write",
+      "tag": "Sub-accounts",
+      "idempotencyRequired": true,
+      "successStatus": 200,
+      "readOnly": false
+    },
+    {
+      "name": "askAssistant",
+      "description": "Ask the developer assistant.\n\nAnswers a developer question strictly from the published FirstFlip documentation (it never\ninvents facts; unsupported claims are scrubbed, and `removed_claims` counts how many). This\nis **not** a money call and takes **no** `Idempotency-Key`. Rate limited to 30 questions per\nkey per hour. The assistant is gated by a separate switch and is OFF by default; when off it\nreturns `503 assistant_disabled`.\n\n\nRequires scope `assistant:ask` on the business key. Test keys simulate supported operations; live execution depends on business eligibility and enabled service gates.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "body": {
+            "type": "object",
+            "required": [
+              "question"
+            ],
+            "properties": {
+              "question": {
+                "type": "string",
+                "maxLength": 2000,
+                "description": "Your question, 1–2000 characters."
+              }
+            },
+            "additionalProperties": false,
+            "description": "JSON request body."
+          }
+        },
+        "required": [
+          "body"
+        ],
+        "additionalProperties": false
+      },
+      "method": "POST",
+      "path": "/assistant",
+      "scope": "assistant:ask",
+      "tag": "Assistant",
+      "idempotencyRequired": false,
+      "successStatus": 200,
+      "readOnly": false,
+      "bodyExample": {
+        "question": "How do I verify a webhook signature?"
+      }
+    },
+    {
+      "name": "bulkTransfers",
+      "description": "Create 1–50 test transfer records.\n\nLocal test mode only; not deployed by this branch. Omit per-item references. Batch completed means resource creation; each payout is still new.\n\nRequires scope `transfers:write` on the business key. Test keys simulate supported operations; live execution depends on business eligibility and enabled service gates.\n\nMCP requires an explicit idempotency_key. Reuse it with identical arguments to retry the same logical request.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "body": {
+            "type": "object",
+            "properties": {
+              "transfers": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "international_bank",
+                        "bank_account",
+                        "mobile_money",
+                        "stablecoin",
+                        "stablecoin_funding"
+                      ]
+                    },
+                    "currency": {
+                      "type": "string",
+                      "enum": [
+                        "USD",
+                        "EUR",
+                        "GBP",
+                        "NGN",
+                        "GHS",
+                        "XAF",
+                        "XOF",
+                        "ZAR",
+                        "UGX",
+                        "RWF",
+                        "KES",
+                        "EGP",
+                        "USDT",
+                        "USDC",
+                        "RLUSD"
+                      ]
+                    },
+                    "debit_currency": {
+                      "type": "string"
+                    },
+                    "amount": {
+                      "oneOf": [
+                        {
+                          "type": "number",
+                          "exclusiveMinimum": 0
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^\\d+(\\.\\d{1,6})?$"
+                        }
+                      ]
+                    },
+                    "country": {
+                      "type": "string",
+                      "enum": [
+                        "CM",
+                        "CI",
+                        "ZA",
+                        "UG",
+                        "GH",
+                        "KE",
+                        "RW",
+                        "SN",
+                        "EG"
+                      ]
+                    },
+                    "account_bank": {
+                      "type": "string"
+                    },
+                    "account_number": {
+                      "type": "string"
+                    },
+                    "network": {
+                      "type": "string",
+                      "enum": [
+                        "SOLANA",
+                        "ETHEREUM",
+                        "BASE",
+                        "POLYGON"
+                      ]
+                    },
+                    "beneficiary_name": {
+                      "type": "string",
+                      "maxLength": 150
+                    },
+                    "beneficiary": {
+                      "type": "object",
+                      "properties": {
+                        "routing_number": {
+                          "type": "string",
+                          "maxLength": 200
+                        },
+                        "swift_code": {
+                          "type": "string",
+                          "maxLength": 200
+                        },
+                        "bank_name": {
+                          "type": "string",
+                          "maxLength": 200
+                        },
+                        "account_type": {
+                          "type": "string",
+                          "maxLength": 200
+                        },
+                        "beneficiary_address": {
+                          "type": "string",
+                          "maxLength": 200
+                        },
+                        "recipient_address": {
+                          "type": "string",
+                          "maxLength": 200
+                        },
+                        "postal_code": {
+                          "type": "string",
+                          "maxLength": 200
+                        },
+                        "street_number": {
+                          "type": "string",
+                          "maxLength": 200
+                        },
+                        "street_name": {
+                          "type": "string",
+                          "maxLength": 200
+                        },
+                        "city": {
+                          "type": "string",
+                          "maxLength": 200
+                        },
+                        "first_name": {
+                          "type": "string",
+                          "maxLength": 200
+                        },
+                        "last_name": {
+                          "type": "string",
+                          "maxLength": 200
+                        },
+                        "beneficiary_merchant_name": {
+                          "type": "string",
+                          "maxLength": 200
+                        },
+                        "email": {
+                          "type": "string",
+                          "maxLength": 200
+                        },
+                        "mobile_number": {
+                          "type": "string",
+                          "maxLength": 200
+                        },
+                        "sender_address": {
+                          "type": "string",
+                          "maxLength": 200
+                        },
+                        "sender_mobile_number": {
+                          "type": "string",
+                          "maxLength": 200
+                        }
+                      }
+                    },
+                    "destination_branch_code": {
+                      "type": "string"
+                    },
+                    "reference": {
+                      "type": "string",
+                      "maxLength": 100
+                    },
+                    "narration": {
+                      "type": "string",
+                      "maxLength": 200
+                    }
+                  },
+                  "required": [
+                    "amount",
+                    "currency"
+                  ]
+                },
+                "minItems": 1,
+                "maxItems": 50
+              }
+            },
+            "required": [
+              "transfers"
+            ],
+            "description": "JSON request body."
+          },
+          "idempotency_key": {
+            "type": "string",
+            "maxLength": 255,
+            "description": "Required by MCP writes. One stable key per logical operation; reuse it with identical arguments after a timeout. The CLI generates and prints a key when omitted."
+          }
+        },
+        "required": [
+          "body"
+        ],
+        "additionalProperties": false
+      },
+      "method": "POST",
+      "path": "/transfers/bulk",
+      "scope": "transfers:write",
+      "tag": "Services sandbox",
+      "idempotencyRequired": true,
+      "successStatus": 201,
+      "readOnly": false,
+      "bodyExample": {
+        "transfers": [
+          {
+            "type": "mobile_money",
+            "country": "UG",
+            "currency": "UGX",
+            "account_bank": "MTN",
+            "account_number": "256240000001",
+            "amount": 1000,
+            "beneficiary_name": "Test Customer"
+          }
+        ]
+      }
+    },
+    {
+      "name": "bulkVirtualAccounts",
+      "description": "Create 1–50 static test accounts.\n\nLocal test mode only; not deployed by this branch. One currency; per-item references omitted. completed means provisioning finished.\n\nRequires scope `virtual_accounts:write` on the business key. Test keys simulate supported operations; live execution depends on business eligibility and enabled service gates.\n\nMCP requires an explicit idempotency_key. Reuse it with identical arguments to retry the same logical request.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "body": {
+            "type": "object",
+            "properties": {
+              "currency": {
+                "type": "string",
+                "enum": [
+                  "NGN",
+                  "GHS"
+                ]
+              },
+              "accounts": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "currency": {
+                      "type": "string",
+                      "enum": [
+                        "NGN",
+                        "GHS"
+                      ]
+                    },
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "dynamic",
+                        "static"
+                      ]
+                    },
+                    "amount": {
+                      "type": "number",
+                      "exclusiveMinimum": 0,
+                      "maximum": 100000000000,
+                      "multipleOf": 0.01
+                    },
+                    "customer": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string",
+                          "maxLength": 100
+                        },
+                        "first_name": {
+                          "type": "string",
+                          "maxLength": 100
+                        },
+                        "last_name": {
+                          "type": "string",
+                          "maxLength": 100
+                        },
+                        "email": {
+                          "type": "string",
+                          "format": "email"
+                        },
+                        "phone": {
+                          "type": "string"
+                        },
+                        "bvn": {
+                          "type": "string",
+                          "pattern": "^\\d{11}$"
+                        },
+                        "nin": {
+                          "type": "string",
+                          "pattern": "^\\d{11}$"
+                        },
+                        "bvn_verification_id": {
+                          "type": "string",
+                          "maxLength": 100
+                        }
+                      }
+                    },
+                    "reference": {
+                      "type": "string",
+                      "maxLength": 100
+                    },
+                    "narration": {
+                      "type": "string",
+                      "maxLength": 35
+                    },
+                    "expires_in": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 1440,
+                      "default": 60
+                    }
+                  },
+                  "required": [
+                    "customer"
+                  ]
+                },
+                "minItems": 1,
+                "maxItems": 50
+              }
+            },
+            "required": [
+              "accounts"
+            ],
+            "description": "JSON request body."
+          },
+          "idempotency_key": {
+            "type": "string",
+            "maxLength": 255,
+            "description": "Required by MCP writes. One stable key per logical operation; reuse it with identical arguments after a timeout. The CLI generates and prints a key when omitted."
+          }
+        },
+        "required": [
+          "body"
+        ],
+        "additionalProperties": false
+      },
+      "method": "POST",
+      "path": "/virtual_accounts/bulk",
+      "scope": "virtual_accounts:write",
+      "tag": "Services sandbox",
+      "idempotencyRequired": true,
+      "successStatus": 201,
+      "readOnly": false,
+      "bodyExample": {
+        "currency": "GHS",
+        "accounts": [
+          {
+            "currency": "GHS",
+            "type": "static",
+            "amount": 100,
+            "customer": {
+              "name": "Test Customer",
+              "first_name": "Test",
+              "last_name": "Customer",
+              "email": "test@example.com",
+              "phone": "2348000000000"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "cancelCharge",
+      "description": "Cancel a charge.\n\nCancels a `pending` charge so it can no longer be paid. Only a pending charge can be\ncancelled; any other state returns `409 charge_not_pending`. Emits `charge.cancelled`.\nRequires an `Idempotency-Key` header.\n\n\nRequires scope `charges:write` on the business key. Test keys simulate supported operations; live execution depends on business eligibility and enabled service gates.\n\nMCP requires an explicit idempotency_key. Reuse it with identical arguments to retry the same logical request.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The charge id (`ch_test_…`).",
+            "examples": [
+              "ch_test_0a1b2c3d4e5f60718293a4b5"
+            ]
+          },
+          "idempotency_key": {
+            "type": "string",
+            "maxLength": 255,
+            "description": "Required by MCP writes. One stable key per logical operation; reuse it with identical arguments after a timeout. The CLI generates and prints a key when omitted."
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "method": "POST",
+      "path": "/charges/{id}/cancel",
+      "scope": "charges:write",
+      "tag": "Charges",
+      "idempotencyRequired": true,
+      "successStatus": 200,
+      "readOnly": false
+    },
+    {
+      "name": "closeCard",
+      "description": "Close a virtual card.\n\nEnds the card for good, from either `active` or `frozen`. `reason` (max 200 chars) is stored\nand returned as `closed_reason`.\n\nClose is terminal: every later write against the card answers `409 card_closed`, and the card\ncannot be reopened — issue a new one. Closing an already-closed card answers `200`. Any\nbalance still on the card is left as recorded against it and is not paid out by this call;\nwithdraw it first if the money must come back. Requires an `Idempotency-Key` header.\n\nLive mode: refused — closing a real card has to settle whatever is outstanding against it, and the\nsettlement rail is not built. This answers `403 live_precondition_unmet` with `param: settlement`\nand changes nothing, on either side.\n\n\nRequires scope `cards:write` on the business key. Test keys simulate supported operations; live execution depends on business eligibility and enabled service gates.\n\nMCP requires an explicit idempotency_key. Reuse it with identical arguments to retry the same logical request.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The card id (`card_test_…`) returned when the card was issued.",
+            "examples": [
+              "card_test_3a4b5c6d7e8f90122a3b4c5d"
+            ]
+          },
+          "body": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "reason": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200,
+                "description": "Stored on the card and echoed on every read, so your support desk can see why a card stopped.",
+                "examples": [
+                  "Customer reported a lost device"
+                ]
+              }
+            },
+            "description": "JSON request body."
+          },
+          "idempotency_key": {
+            "type": "string",
+            "maxLength": 255,
+            "description": "Required by MCP writes. One stable key per logical operation; reuse it with identical arguments after a timeout. The CLI generates and prints a key when omitted."
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "method": "POST",
+      "path": "/cards/{id}/close",
+      "scope": "cards:write",
+      "tag": "Cards",
+      "idempotencyRequired": true,
+      "successStatus": 200,
+      "readOnly": false,
+      "bodyExample": {
+        "reason": "Customer left the platform"
+      }
+    },
+    {
+      "name": "createBvnVerification",
+      "description": "Start a test BVN consent flow.\n\nLocal test mode only; not deployed by this branch. consent_url is null in local simulation. A test result cannot grant real KYC approval or live keys.\n\nRequires scope `verifications:write` on the business key. Test keys simulate supported operations; live execution depends on business eligibility and enabled service gates.\n\nMCP requires an explicit idempotency_key. Reuse it with identical arguments to retry the same logical request.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "body": {
+            "type": "object",
+            "properties": {
+              "bvn": {
+                "type": "string",
+                "pattern": "^\\d{11}$"
+              },
+              "first_name": {
+                "type": "string",
+                "maxLength": 100
+              },
+              "last_name": {
+                "type": "string",
+                "maxLength": 100
+              },
+              "redirect_url": {
+                "type": "string",
+                "format": "uri",
+                "pattern": "^https://"
+              }
+            },
+            "required": [
+              "bvn",
+              "first_name",
+              "last_name",
+              "redirect_url"
+            ],
+            "description": "JSON request body."
+          },
+          "idempotency_key": {
+            "type": "string",
+            "maxLength": 255,
+            "description": "Required by MCP writes. One stable key per logical operation; reuse it with identical arguments after a timeout. The CLI generates and prints a key when omitted."
+          }
+        },
+        "required": [
+          "body"
+        ],
+        "additionalProperties": false
+      },
+      "method": "POST",
+      "path": "/verifications/bvn",
+      "scope": "verifications:write",
+      "tag": "Services sandbox",
+      "idempotencyRequired": true,
+      "successStatus": 201,
+      "readOnly": false,
+      "bodyExample": {
+        "bvn": "22222222280",
+        "first_name": "Test",
+        "last_name": "Customer",
+        "redirect_url": "https://example.com/complete"
+      }
+    },
+    {
+      "name": "createCard",
+      "description": "Create a virtual card.\n\nIssues one sandbox USD card to one of your customers. The card starts at `balance: 0` with\nno spend limits, and every later call on this surface moves or gates that balance.\n\n`customer.first_name`, `customer.last_name` and `customer.email` are required; the customer\nis validated and then **not stored** — no name or email is persisted on the card, so a\nleaked card id carries no PII with it. `reference` is yours, unique per business (a repeat\nreturns `409 duplicate_reference`), and defaults to the card id. `currency` may only be\n`USD`; sending anything else returns 400.\n\nThe three limits are optional at issue time and are set or cleared later on\n`POST /cards/{id}/spend_limits`. They are per-card ceilings you choose, and no platform maximum\nis applied to any single axis. FirstFlip's ceilings sit elsewhere: one on how many cards a key\nmay hold open, and one on what all your cards may spend together — both stated below and in\nthe authorization section.\n\nFirstFlip's one cap on issuing is a count, not an amount: a key may hold **250 open cards**.\nThe 251st `POST /cards` answers `409 card_limit_reached` with `param: cards` and nothing moves;\nclosing a card frees a slot, so a healthy integration is never locked out. Resending the same\n`Idempotency-Key` is not a new card and is not counted.\n\nThe response shows `number_last4`, `expiry_month` and `expiry_year`. Those are minted here\nfor shape only — this card has no issuer, no full PAN and no CVV, and `sandbox.real_card`\nsays so on every answer. Requires an `Idempotency-Key` header.\n\nLive mode: a live key is refused here before the body is read — issuing a real card needs the\ncardholder rail FirstFlip has not built, so this answers `403 live_precondition_unmet` with\n`param: cardholder`. No card is minted, and the refusal is what your key replays.\n\n\nRequires scope `cards:write` on the business key. Test keys simulate supported operations; live execution depends on business eligibility and enabled service gates.\n\nMCP requires an explicit idempotency_key. Reuse it with identical arguments to retry the same logical request.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "body": {
+            "type": "object",
+            "description": "JSON request body. Issue a card for one of your customers.",
+            "required": [
+              "customer"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "currency": {
+                "type": "string",
+                "const": "USD",
+                "description": "Optional, and only ever `USD`. Anything else is `400 invalid_parameter` rather than a fallback."
+              },
+              "reference": {
+                "type": "string",
+                "maxLength": 100,
+                "description": "Your id for this card. Unique per key and mode; defaults to the generated `id`. A second attempt with the same reference and a different Idempotency-Key answers `409 duplicate_reference`.",
+                "examples": [
+                  "customer_8842_usd"
+                ]
+              },
+              "customer": {
+                "type": "object",
+                "description": "Who the card is for. Only these three fields are accepted, and nothing about the customer is stored —\nthe same rule virtual accounts hold. Names and emails live in your database; the card carries your\n`reference` so you can join them back.\n",
+                "required": [
+                  "email",
+                  "first_name",
+                  "last_name"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "maxLength": 254,
+                    "description": "Must be a valid address: `someone@app` is rejected, `someone@app.co` is not."
+                  },
+                  "first_name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "last_name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  }
+                }
+              },
+              "daily_limit": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "minimum": 0.01,
+                "description": "Rolling-24h authorization ceiling in major units. Omit or null for no ceiling."
+              },
+              "per_transaction_limit": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "minimum": 0.01,
+                "description": "Largest single authorization in major units. Omit or null for no ceiling."
+              },
+              "monthly_limit": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "minimum": 0.01,
+                "description": "Rolling-30-day authorization ceiling in major units. Omit or null for no ceiling."
+              }
+            }
+          },
+          "idempotency_key": {
+            "type": "string",
+            "maxLength": 255,
+            "description": "Required by MCP writes. One stable key per logical operation; reuse it with identical arguments after a timeout. The CLI generates and prints a key when omitted."
+          }
+        },
+        "required": [
+          "body"
+        ],
+        "additionalProperties": false
+      },
+      "method": "POST",
+      "path": "/cards",
+      "scope": "cards:write",
+      "tag": "Cards",
+      "idempotencyRequired": true,
+      "successStatus": 201,
+      "readOnly": false,
+      "bodyExample": {
+        "reference": "cust-1042",
+        "customer": {
+          "first_name": "Amara",
+          "last_name": "Okafor",
+          "email": "amara@example.com"
+        },
+        "daily_limit": 500,
+        "per_transaction_limit": 200
+      }
+    },
+    {
+      "name": "createCharge",
+      "description": "Create a charge.\n\nCreates a one-time charge for an amount you set in major units. FirstFlip quotes the exact\ncrypto amount the customer must pay (asset + network you chose, plus the receive fee) and\nreturns a `hosted_url` where they complete payment. In test mode the pay address is a\nlabelled `TEST-…` placeholder and payment is simulated — nothing moves money.\n\nRequires an `Idempotency-Key` header. If you pass a `reference`, it must be unique within\nyour business (a repeat returns `409 duplicate_reference`).\n\n\nRequires scope `charges:write` on the business key. Test keys simulate supported operations; live execution depends on business eligibility and enabled service gates.\n\nMCP requires an explicit idempotency_key. Reuse it with identical arguments to retry the same logical request.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "body": {
+            "type": "object",
+            "description": "JSON request body. Body for creating a charge. `amount` is your price; every other number is derived server-side.",
+            "required": [
+              "amount",
+              "currency"
+            ],
+            "properties": {
+              "amount": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "description": "The price in major units of `currency`, at most 2 decimal places. Must be at least the\nminimum charge (default 5 USD / 5000 NGN, configurable) and at most 1,000,000 USD or\n1,000,000,000 NGN.\n",
+                "examples": [
+                  25000
+                ]
+              },
+              "currency": {
+                "type": "string",
+                "enum": [
+                  "NGN",
+                  "USD"
+                ]
+              },
+              "pay_asset": {
+                "type": "string",
+                "enum": [
+                  "USDT",
+                  "USDC",
+                  "BTC"
+                ],
+                "default": "USDT",
+                "description": "The asset the customer pays in."
+              },
+              "pay_network": {
+                "type": "string",
+                "enum": [
+                  "trc20",
+                  "bep20",
+                  "bitcoin"
+                ],
+                "description": "The network. Must be valid for `pay_asset`: USDT → trc20 or bep20 (default trc20);\nUSDC → bep20 (default bep20); BTC → bitcoin (default bitcoin). Defaults to the asset's\ndefault network if omitted.\n"
+              },
+              "description": {
+                "type": "string",
+                "maxLength": 500,
+                "description": "Shown on the hosted pay page."
+              },
+              "reference": {
+                "type": "string",
+                "maxLength": 100,
+                "description": "Your own order id. Must be unique within your business."
+              },
+              "expires_in_minutes": {
+                "type": "integer",
+                "minimum": 15,
+                "maximum": 10080,
+                "default": 60,
+                "description": "How long the charge stays payable (15 minutes to 7 days)."
+              },
+              "metadata": {
+                "type": "object",
+                "description": "Up to 20 key/value pairs you attach to an object; echoed back on reads and in webhooks.\nKeys match `^[A-Za-z0-9_-]{1,40}$`. Values are stored as strings (numbers and booleans are\ncoerced to strings) of at most 500 characters.\n",
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "maxProperties": 20,
+                "propertyNames": {
+                  "pattern": "^[A-Za-z0-9_-]{1,40}$"
+                },
+                "examples": [
+                  {
+                    "order_id": "1048",
+                    "channel": "web"
+                  }
+                ]
+              },
+              "customer": {
+                "type": "object",
+                "description": "Optional customer details attached to a charge.",
+                "properties": {
+                  "name": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 120
+                  },
+                  "email": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 254,
+                    "format": "email"
+                  }
+                }
+              }
+            }
+          },
+          "idempotency_key": {
+            "type": "string",
+            "maxLength": 255,
+            "description": "Required by MCP writes. One stable key per logical operation; reuse it with identical arguments after a timeout. The CLI generates and prints a key when omitted."
+          }
+        },
+        "required": [
+          "body"
+        ],
+        "additionalProperties": false
+      },
+      "method": "POST",
+      "path": "/charges",
+      "scope": "charges:write",
+      "tag": "Charges",
+      "idempotencyRequired": true,
+      "successStatus": 201,
+      "readOnly": false,
+      "bodyExample": {
+        "amount": 25000,
+        "currency": "NGN",
+        "description": "Order",
+        "reference": "order_1048",
+        "pay_asset": "USDT",
+        "pay_network": "trc20",
+        "customer": {
+          "name": "Jane Doe",
+          "email": "jane@example.com"
+        },
+        "metadata": {
+          "order_id": "1048",
+          "channel": "web"
+        }
+      }
+    },
+    {
+      "name": "createFxQuote",
+      "description": "Create a synthetic FX quote.\n\nLocal test mode only; not deployed by this branch. NGN/USD, GHS/USD and USD/NGN only. Synthetic rates; minimum USD 1000 equivalent. Expiry five minutes.\n\nRequires scope `fx:write` on the business key. Test keys simulate supported operations; live execution depends on business eligibility and enabled service gates.\n\nMCP requires an explicit idempotency_key. Reuse it with identical arguments to retry the same logical request.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "body": {
+            "type": "object",
+            "properties": {
+              "base_currency": {
+                "type": "string",
+                "enum": [
+                  "NGN",
+                  "GHS",
+                  "USD"
+                ]
+              },
+              "target_currency": {
+                "type": "string",
+                "enum": [
+                  "NGN",
+                  "USD"
+                ]
+              },
+              "quantity": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "maximum": 100000000000,
+                "multipleOf": 0.01
+              },
+              "reference": {
+                "type": "string",
+                "maxLength": 100
+              },
+              "scenario": {
+                "type": "string",
+                "enum": [
+                  "ready",
+                  "processing",
+                  "expired",
+                  "invalid_amount",
+                  "invalid_currency_pair",
+                  "exceeded_limit"
+                ]
+              }
+            },
+            "required": [
+              "base_currency",
+              "target_currency",
+              "quantity"
+            ],
+            "description": "JSON request body."
+          },
+          "idempotency_key": {
+            "type": "string",
+            "maxLength": 255,
+            "description": "Required by MCP writes. One stable key per logical operation; reuse it with identical arguments after a timeout. The CLI generates and prints a key when omitted."
+          }
+        },
+        "required": [
+          "body"
+        ],
+        "additionalProperties": false
+      },
+      "method": "POST",
+      "path": "/fx/quotes",
+      "scope": "fx:write",
+      "tag": "Services sandbox",
+      "idempotencyRequired": true,
+      "successStatus": 201,
+      "readOnly": false,
+      "bodyExample": {
+        "base_currency": "NGN",
+        "target_currency": "USD",
+        "quantity": 1600000,
+        "scenario": "processing"
+      }
+    },
+    {
+      "name": "createFxTrade",
+      "description": "Consume a ready quote for one trade.\n\nLocal test mode only; not deployed by this branch. \n\nRequires scope `fx:write` on the business key. Test keys simulate supported operations; live execution depends on business eligibility and enabled service gates.\n\nMCP requires an explicit idempotency_key. Reuse it with identical arguments to retry the same logical request.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "body": {
+            "type": "object",
+            "properties": {
+              "quote_id": {
+                "type": "string",
+                "maxLength": 100
+              },
+              "narration": {
+                "type": "string",
+                "maxLength": 200
+              }
+            },
+            "required": [
+              "quote_id"
+            ],
+            "description": "JSON request body."
+          },
+          "idempotency_key": {
+            "type": "string",
+            "maxLength": 255,
+            "description": "Required by MCP writes. One stable key per logical operation; reuse it with identical arguments after a timeout. The CLI generates and prints a key when omitted."
+          }
+        },
+        "required": [
+          "body"
+        ],
+        "additionalProperties": false
+      },
+      "method": "POST",
+      "path": "/fx/trades",
+      "scope": "fx:write",
+      "tag": "Services sandbox",
+      "idempotencyRequired": true,
+      "successStatus": 201,
+      "readOnly": false,
+      "bodyExample": {
+        "quote_id": "{{fx_quote_id}}"
+      }
+    },
+    {
+      "name": "createOtp",
+      "description": "Create a test OTP.\n\nLocal test mode only; not deployed by this branch. Default six digits; 5–7 accepted. Five attempts; 1–10 minute expiry. sandbox.code exists only on creation.\n\nRequires scope `otps:write` on the business key. Test keys simulate supported operations; live execution depends on business eligibility and enabled service gates.\n\nMCP requires an explicit idempotency_key. Reuse it with identical arguments to retry the same logical request.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "body": {
+            "type": "object",
+            "properties": {
+              "customer": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "maxLength": 100
+                  },
+                  "first_name": {
+                    "type": "string",
+                    "maxLength": 100
+                  },
+                  "last_name": {
+                    "type": "string",
+                    "maxLength": 100
+                  },
+                  "email": {
+                    "type": "string",
+                    "format": "email"
+                  },
+                  "phone": {
+                    "type": "string"
+                  },
+                  "bvn": {
+                    "type": "string",
+                    "pattern": "^\\d{11}$"
+                  },
+                  "nin": {
+                    "type": "string",
+                    "pattern": "^\\d{11}$"
+                  },
+                  "bvn_verification_id": {
+                    "type": "string",
+                    "maxLength": 100
+                  }
+                }
+              },
+              "medium": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "email",
+                    "sms",
+                    "whatsapp"
+                  ]
+                },
+                "minItems": 1,
+                "maxItems": 3,
+                "uniqueItems": true,
+                "default": [
+                  "sms"
+                ]
+              },
+              "length": {
+                "type": "integer",
+                "minimum": 5,
+                "maximum": 7,
+                "default": 6
+              },
+              "expiry": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 10,
+                "default": 5
+              },
+              "sender": {
+                "type": "string",
+                "maxLength": 35
+              },
+              "send": {
+                "const": true
+              }
+            },
+            "required": [
+              "customer"
+            ],
+            "description": "JSON request body."
+          },
+          "idempotency_key": {
+            "type": "string",
+            "maxLength": 255,
+            "description": "Required by MCP writes. One stable key per logical operation; reuse it with identical arguments after a timeout. The CLI generates and prints a key when omitted."
+          }
+        },
+        "required": [
+          "body"
+        ],
+        "additionalProperties": false
+      },
+      "method": "POST",
+      "path": "/otps",
+      "scope": "otps:write",
+      "tag": "Services sandbox",
+      "idempotencyRequired": true,
+      "successStatus": 201,
+      "readOnly": false,
+      "bodyExample": {
+        "customer": {
+          "name": "Test Customer",
+          "first_name": "Test",
+          "last_name": "Customer",
+          "email": "test@example.com",
+          "phone": "2348000000000"
+        },
+        "medium": [
+          "sms"
+        ]
+      }
+    },
+    {
+      "name": "createPaymentLink",
+      "description": "Create a payment link.\n\nCreates a reusable link. Each visitor who opens the link's `url` gets a fresh charge and is\nredirected to its hosted pay page, so one link can be shared on social media or printed as a\nQR code and paid many times. Optionally cap it with `max_uses`.\n\nA link has no `reference` or `customer` (those belong on individual charges) — sending\neither returns `400 invalid_parameter`. Requires an `Idempotency-Key` header.\n\n\nRequires scope `payment_links:write` on the business key. Test keys simulate supported operations; live execution depends on business eligibility and enabled service gates.\n\nMCP requires an explicit idempotency_key. Reuse it with identical arguments to retry the same logical request.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "body": {
+            "type": "object",
+            "description": "JSON request body. Body for creating a payment link. Shares the amount/currency/asset/network/metadata rules of\na charge. It has no `reference` or `customer` (those belong on charges) — sending either\nreturns 400.\n",
+            "required": [
+              "amount",
+              "currency"
+            ],
+            "properties": {
+              "amount": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "description": "Price per charge, in major units of `currency` (same bounds as a charge's amount).",
+                "examples": [
+                  10
+                ]
+              },
+              "currency": {
+                "type": "string",
+                "enum": [
+                  "NGN",
+                  "USD"
+                ]
+              },
+              "pay_asset": {
+                "type": "string",
+                "enum": [
+                  "USDT",
+                  "USDC",
+                  "BTC"
+                ],
+                "default": "USDT"
+              },
+              "pay_network": {
+                "type": "string",
+                "enum": [
+                  "trc20",
+                  "bep20",
+                  "bitcoin"
+                ],
+                "description": "Must be valid for `pay_asset` (see CreateChargeRequest)."
+              },
+              "description": {
+                "type": "string",
+                "maxLength": 500
+              },
+              "max_uses": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 1000000,
+                "description": "Cap the number of charges the link may create. Omit for unlimited."
+              },
+              "metadata": {
+                "type": "object",
+                "description": "Up to 20 key/value pairs you attach to an object; echoed back on reads and in webhooks.\nKeys match `^[A-Za-z0-9_-]{1,40}$`. Values are stored as strings (numbers and booleans are\ncoerced to strings) of at most 500 characters.\n",
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "maxProperties": 20,
+                "propertyNames": {
+                  "pattern": "^[A-Za-z0-9_-]{1,40}$"
+                },
+                "examples": [
+                  {
+                    "order_id": "1048",
+                    "channel": "web"
+                  }
+                ]
+              }
+            }
+          },
+          "idempotency_key": {
+            "type": "string",
+            "maxLength": 255,
+            "description": "Required by MCP writes. One stable key per logical operation; reuse it with identical arguments after a timeout. The CLI generates and prints a key when omitted."
+          }
+        },
+        "required": [
+          "body"
+        ],
+        "additionalProperties": false
+      },
+      "method": "POST",
+      "path": "/payment_links",
+      "scope": "payment_links:write",
+      "tag": "Payment links",
+      "idempotencyRequired": true,
+      "successStatus": 201,
+      "readOnly": false,
+      "bodyExample": {
+        "amount": 10,
+        "currency": "USD",
+        "description": "Monthly membership",
+        "pay_asset": "USDT",
+        "pay_network": "trc20",
+        "max_uses": 100,
+        "metadata": {
+          "plan": "pro"
+        }
+      }
+    },
+    {
+      "name": "createSubAccount",
+      "description": "Create a sub-account.\n\nProvisions one of **your own end-users** under your business — the tenant layer. The\nsub-account is a sandbox identity: it has no wallet, no balance, and cannot receive real\nmoney (the response always says so in `sandbox`). Live provisioning opens only with the\nlive rails, and this endpoint stays test-mode until then.\n\n`name` is required. `reference` is yours (an id from your system) and must be unique within\nyour business; if you omit it, the sub-account id is used. Requires an `Idempotency-Key`\nheader.\n\n\nRequires scope `subaccounts:write` on the business key. Test keys simulate supported operations; live execution depends on business eligibility and enabled service gates.\n\nMCP requires an explicit idempotency_key. Reuse it with identical arguments to retry the same logical request.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "body": {
+            "type": "object",
+            "description": "JSON request body. Body for creating a sub-account. `name` is required; `email` is optional. `reference` is\nyours and must be unique within your business (a repeat returns `409 duplicate_reference`).\nIt is used as the id when omitted.\n",
+            "required": [
+              "name"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100,
+                "description": "The sub-account's display name."
+              },
+              "email": {
+                "type": "string",
+                "format": "email",
+                "maxLength": 254,
+                "description": "Optional contact email."
+              },
+              "reference": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100,
+                "description": "Your id for this tenant. Must be unique within your business."
+              },
+              "metadata": {
+                "type": "object",
+                "description": "Up to 20 key/value pairs you attach to an object; echoed back on reads and in webhooks.\nKeys match `^[A-Za-z0-9_-]{1,40}$`. Values are stored as strings (numbers and booleans are\ncoerced to strings) of at most 500 characters.\n",
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "maxProperties": 20,
+                "propertyNames": {
+                  "pattern": "^[A-Za-z0-9_-]{1,40}$"
+                },
+                "examples": [
+                  {
+                    "order_id": "1048",
+                    "channel": "web"
+                  }
+                ]
+              }
+            }
+          },
+          "idempotency_key": {
+            "type": "string",
+            "maxLength": 255,
+            "description": "Required by MCP writes. One stable key per logical operation; reuse it with identical arguments after a timeout. The CLI generates and prints a key when omitted."
+          }
+        },
+        "required": [
+          "body"
+        ],
+        "additionalProperties": false
+      },
+      "method": "POST",
+      "path": "/subaccounts",
+      "scope": "subaccounts:write",
+      "tag": "Sub-accounts",
+      "idempotencyRequired": true,
+      "successStatus": 201,
+      "readOnly": false,
+      "bodyExample": {
+        "name": "Ada's Store",
+        "email": "ada@example.com",
+        "reference": "tenant_1042",
+        "metadata": {
+          "plan": "starter"
+        }
+      }
+    },
+    {
+      "name": "createTransfer",
+      "description": "Create a test bank/mobile-money/stablecoin transfer.\n\nLocal test mode only; not deployed by this branch. Validate corridor, network and currency-specific metadata. No payout fee is quoted; fee is null.\n\nRequires scope `transfers:write` on the business key. Test keys simulate supported operations; live execution depends on business eligibility and enabled service gates.\n\nMCP requires an explicit idempotency_key. Reuse it with identical arguments to retry the same logical request.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "body": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "international_bank",
+                  "bank_account",
+                  "mobile_money",
+                  "stablecoin",
+                  "stablecoin_funding"
+                ]
+              },
+              "currency": {
+                "type": "string",
+                "enum": [
+                  "USD",
+                  "EUR",
+                  "GBP",
+                  "NGN",
+                  "GHS",
+                  "XAF",
+                  "XOF",
+                  "ZAR",
+                  "UGX",
+                  "RWF",
+                  "KES",
+                  "EGP",
+                  "USDT",
+                  "USDC",
+                  "RLUSD"
+                ]
+              },
+              "debit_currency": {
+                "type": "string"
+              },
+              "amount": {
+                "oneOf": [
+                  {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^\\d+(\\.\\d{1,6})?$"
+                  }
+                ]
+              },
+              "country": {
+                "type": "string",
+                "enum": [
+                  "CM",
+                  "CI",
+                  "ZA",
+                  "UG",
+                  "GH",
+                  "KE",
+                  "RW",
+                  "SN",
+                  "EG"
+                ]
+              },
+              "account_bank": {
+                "type": "string"
+              },
+              "account_number": {
+                "type": "string"
+              },
+              "network": {
+                "type": "string",
+                "enum": [
+                  "SOLANA",
+                  "ETHEREUM",
+                  "BASE",
+                  "POLYGON"
+                ]
+              },
+              "beneficiary_name": {
+                "type": "string",
+                "maxLength": 150
+              },
+              "beneficiary": {
+                "type": "object",
+                "properties": {
+                  "routing_number": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "swift_code": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "bank_name": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "account_type": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "beneficiary_address": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "recipient_address": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "postal_code": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "street_number": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "street_name": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "city": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "first_name": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "last_name": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "beneficiary_merchant_name": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "email": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "mobile_number": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "sender_address": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "sender_mobile_number": {
+                    "type": "string",
+                    "maxLength": 200
+                  }
+                }
+              },
+              "destination_branch_code": {
+                "type": "string"
+              },
+              "reference": {
+                "type": "string",
+                "maxLength": 100
+              },
+              "narration": {
+                "type": "string",
+                "maxLength": 200
+              }
+            },
+            "required": [
+              "amount",
+              "currency"
+            ],
+            "description": "JSON request body."
+          },
+          "idempotency_key": {
+            "type": "string",
+            "maxLength": 255,
+            "description": "Required by MCP writes. One stable key per logical operation; reuse it with identical arguments after a timeout. The CLI generates and prints a key when omitted."
+          }
+        },
+        "required": [
+          "body"
+        ],
+        "additionalProperties": false
+      },
+      "method": "POST",
+      "path": "/transfers",
+      "scope": "transfers:write",
+      "tag": "Services sandbox",
+      "idempotencyRequired": true,
+      "successStatus": 201,
+      "readOnly": false,
+      "bodyExample": {
+        "type": "mobile_money",
+        "country": "GH",
+        "currency": "GHS",
+        "account_bank": "MTN",
+        "account_number": "233240000001",
+        "amount": 100,
+        "beneficiary_name": "Test Customer"
+      }
+    },
+    {
+      "name": "createVirtualAccount",
+      "description": "Create an NGN or GHS test account.\n\nLocal test mode only; not deployed by this branch. Static NGN BVN inputs require matching consented test BVN verification. NIN is format-only in local simulation.\n\nRequires scope `virtual_accounts:write` on the business key. Test keys simulate supported operations; live execution depends on business eligibility and enabled service gates.\n\nMCP requires an explicit idempotency_key. Reuse it with identical arguments to retry the same logical request.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "body": {
+            "type": "object",
+            "properties": {
+              "currency": {
+                "type": "string",
+                "enum": [
+                  "NGN",
+                  "GHS"
+                ]
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "dynamic",
+                  "static"
+                ]
+              },
+              "amount": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "maximum": 100000000000,
+                "multipleOf": 0.01
+              },
+              "customer": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "maxLength": 100
+                  },
+                  "first_name": {
+                    "type": "string",
+                    "maxLength": 100
+                  },
+                  "last_name": {
+                    "type": "string",
+                    "maxLength": 100
+                  },
+                  "email": {
+                    "type": "string",
+                    "format": "email"
+                  },
+                  "phone": {
+                    "type": "string"
+                  },
+                  "bvn": {
+                    "type": "string",
+                    "pattern": "^\\d{11}$"
+                  },
+                  "nin": {
+                    "type": "string",
+                    "pattern": "^\\d{11}$"
+                  },
+                  "bvn_verification_id": {
+                    "type": "string",
+                    "maxLength": 100
+                  }
+                }
+              },
+              "reference": {
+                "type": "string",
+                "maxLength": 100
+              },
+              "narration": {
+                "type": "string",
+                "maxLength": 35
+              },
+              "expires_in": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 1440,
+                "default": 60
+              }
+            },
+            "required": [
+              "customer"
+            ],
+            "description": "JSON request body."
+          },
+          "idempotency_key": {
+            "type": "string",
+            "maxLength": 255,
+            "description": "Required by MCP writes. One stable key per logical operation; reuse it with identical arguments after a timeout. The CLI generates and prints a key when omitted."
+          }
+        },
+        "required": [
+          "body"
+        ],
+        "additionalProperties": false
+      },
+      "method": "POST",
+      "path": "/virtual_accounts",
+      "scope": "virtual_accounts:write",
+      "tag": "Services sandbox",
+      "idempotencyRequired": true,
+      "successStatus": 201,
+      "readOnly": false,
+      "bodyExample": {
+        "currency": "GHS",
+        "type": "static",
+        "amount": 100,
+        "customer": {
+          "name": "Test Customer",
+          "first_name": "Test",
+          "last_name": "Customer",
+          "email": "test@example.com",
+          "phone": "2348000000000"
+        }
+      }
+    },
+    {
+      "name": "deactivatePaymentLink",
+      "description": "Deactivate a payment link.\n\nStops the link from creating new charges. Charges already created from it are unaffected.\nRequires an `Idempotency-Key` header.\n\n\nRequires scope `payment_links:write` on the business key. Test keys simulate supported operations; live execution depends on business eligibility and enabled service gates.\n\nMCP requires an explicit idempotency_key. Reuse it with identical arguments to retry the same logical request.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The payment link id (`pl_test_…`).",
+            "examples": [
+              "pl_test_1a2b3c4d5e6f70819a0b1c2d"
+            ]
+          },
+          "idempotency_key": {
+            "type": "string",
+            "maxLength": 255,
+            "description": "Required by MCP writes. One stable key per logical operation; reuse it with identical arguments after a timeout. The CLI generates and prints a key when omitted."
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "method": "POST",
+      "path": "/payment_links/{id}/deactivate",
+      "scope": "payment_links:write",
+      "tag": "Payment links",
+      "idempotencyRequired": true,
+      "successStatus": 200,
+      "readOnly": false
+    },
+    {
+      "name": "deactivateVirtualAccount",
+      "description": "Deactivate a test account.\n\nLocal test mode only; not deployed by this branch. \n\nRequires scope `virtual_accounts:write` on the business key. Test keys simulate supported operations; live execution depends on business eligibility and enabled service gates.\n\nMCP requires an explicit idempotency_key. Reuse it with identical arguments to retry the same logical request.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 100,
+            "examples": [
+              "va_test_5e6f708192a3b4c5d6e7f809"
+            ]
+          },
+          "body": {
+            "type": "object",
+            "properties": {},
+            "description": "JSON request body."
+          },
+          "idempotency_key": {
+            "type": "string",
+            "maxLength": 255,
+            "description": "Required by MCP writes. One stable key per logical operation; reuse it with identical arguments after a timeout. The CLI generates and prints a key when omitted."
+          }
+        },
+        "required": [
+          "id",
+          "body"
+        ],
+        "additionalProperties": false
+      },
+      "method": "POST",
+      "path": "/virtual_accounts/{id}/deactivate",
+      "scope": "virtual_accounts:write",
+      "tag": "Services sandbox",
+      "idempotencyRequired": true,
+      "successStatus": 200,
+      "readOnly": false,
+      "bodyExample": {}
+    },
+    {
+      "name": "freezeCard",
+      "description": "Freeze a virtual card.\n\nStops the card from spending or being withdrawn from, and keeps every other property — the\nbalance, the limits, the id — exactly as they are. `reason` (max 200 chars) is stored and\nreturned as `frozen_reason`.\n\nFreezing is idempotent by outcome: freezing an already-frozen card answers `200` with that\nstate rather than an error, so two racing requests cannot disagree. A closed card answers\n`409 card_closed`. Requires an `Idempotency-Key` header.\n\nLive mode: this leg runs live, and it is the leg that matters on the day a card is reported lost.\n\n\nRequires scope `cards:write` on the business key. Test keys simulate supported operations; live execution depends on business eligibility and enabled service gates.\n\nMCP requires an explicit idempotency_key. Reuse it with identical arguments to retry the same logical request.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The card id (`card_test_…`) returned when the card was issued.",
+            "examples": [
+              "card_test_3a4b5c6d7e8f90122a3b4c5d"
+            ]
+          },
+          "body": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "reason": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200,
+                "description": "Stored on the card and echoed on every read, so your support desk can see why a card stopped.",
+                "examples": [
+                  "Customer reported a lost device"
+                ]
+              }
+            },
+            "description": "JSON request body."
+          },
+          "idempotency_key": {
+            "type": "string",
+            "maxLength": 255,
+            "description": "Required by MCP writes. One stable key per logical operation; reuse it with identical arguments after a timeout. The CLI generates and prints a key when omitted."
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "method": "POST",
+      "path": "/cards/{id}/freeze",
+      "scope": "cards:write",
+      "tag": "Cards",
+      "idempotencyRequired": true,
+      "successStatus": 200,
+      "readOnly": false,
+      "bodyExample": {
+        "reason": "Reported lost"
+      }
+    },
+    {
+      "name": "fundCard",
+      "description": "Fund a virtual card.\n\nPuts money on the card from your business's sandbox funding, and returns the ledger row that\ndescribes the credit (`type: topup`, `status: completed`, with `balance_before` and\n`balance_after`). The row and the balance move in one commit, so a funding row can never\ndescribe money the card did not receive.\n\nFunding a **frozen** card is allowed — money arriving is never blocked by a freeze, only money\nleaving. Funding a **closed** card returns `409 card_closed`. Requires an `Idempotency-Key`\nheader: retry the same key to replay this credit instead of funding twice.\n\nLive mode: refused — funding needs a tenant USD balance to move money from, and that rail is not\nbuilt. This answers `403 live_precondition_unmet` with `param: funding` before your amount is read.\n\n\nRequires scope `cards:write` on the business key. Test keys simulate supported operations; live execution depends on business eligibility and enabled service gates.\n\nMCP requires an explicit idempotency_key. Reuse it with identical arguments to retry the same logical request.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The card id (`card_test_…`) returned when the card was issued.",
+            "examples": [
+              "card_test_3a4b5c6d7e8f90122a3b4c5d"
+            ]
+          },
+          "body": {
+            "type": "object",
+            "required": [
+              "amount"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "amount": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "maximum": 100000000000,
+                "description": "Major units with at most two decimals (so `10.005` is a `400`, and so are `true`, `[]` and `\"10\"` —\nno coercion, because a silently converted amount is a reconciliation break you find later).\n",
+                "examples": [
+                  100
+                ]
+              }
+            },
+            "description": "JSON request body."
+          },
+          "idempotency_key": {
+            "type": "string",
+            "maxLength": 255,
+            "description": "Required by MCP writes. One stable key per logical operation; reuse it with identical arguments after a timeout. The CLI generates and prints a key when omitted."
+          }
+        },
+        "required": [
+          "id",
+          "body"
+        ],
+        "additionalProperties": false
+      },
+      "method": "POST",
+      "path": "/cards/{id}/fund",
+      "scope": "cards:write",
+      "tag": "Cards",
+      "idempotencyRequired": true,
+      "successStatus": 201,
+      "readOnly": false,
+      "bodyExample": {
+        "amount": 100
+      }
+    },
+    {
+      "name": "getAccount",
+      "description": "Retrieve the current account.\n\nReturns the business tied to the secret key you sent, the key's mode, and the masked key.\nThis is the ideal first call to confirm your credentials and environment.\n\n\nRequires scope `account:read` on the business key. Test keys simulate supported operations; live execution depends on business eligibility and enabled service gates.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "method": "GET",
+      "path": "/account",
+      "scope": "account:read",
+      "tag": "Account",
+      "idempotencyRequired": false,
+      "successStatus": 200,
+      "readOnly": true
+    },
+    {
+      "name": "getBvnVerification",
+      "description": "Retrieve a customer test BVN status.\n\nLocal test mode only; not deployed by this branch. \n\nRequires scope `verifications:read` on the business key. Test keys simulate supported operations; live execution depends on business eligibility and enabled service gates.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 100,
+            "examples": [
+              "bvn_test_8192a3b4c5d6e7f8091a2b3c"
+            ]
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "method": "GET",
+      "path": "/verifications/bvn/{id}",
+      "scope": "verifications:read",
+      "tag": "Services sandbox",
+      "idempotencyRequired": false,
+      "successStatus": 200,
+      "readOnly": true
+    },
+    {
+      "name": "getCard",
+      "description": "Retrieve a virtual card.\n\nReturns one card, including its current `balance`, `status` and `limits`. This is the read\nyour own UI should render from — never from a value cached after a write, because a spend can\nhave landed since.\n\nLive mode: this read runs live. A live card answers `livemode: true` with `sandbox: null`; a card\nbelonging to the other mode is a `404`, byte-for-byte the answer for a card that does not exist.\n\n\nRequires scope `cards:read` on the business key. Test keys simulate supported operations; live execution depends on business eligibility and enabled service gates.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The card id (`card_test_…`) returned when the card was issued.",
+            "examples": [
+              "card_test_3a4b5c6d7e8f90122a3b4c5d"
+            ]
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "method": "GET",
+      "path": "/cards/{id}",
+      "scope": "cards:read",
+      "tag": "Cards",
+      "idempotencyRequired": false,
+      "successStatus": 200,
+      "readOnly": true
+    },
+    {
+      "name": "getCharge",
+      "description": "Retrieve a charge.\n\nFetches a charge by id. A pending charge past its `expires_at` is lazily transitioned to\n`expired` (and `charge.expired` is emitted) the first time it is read.\n\n\nRequires scope `charges:read` on the business key. Test keys simulate supported operations; live execution depends on business eligibility and enabled service gates.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The charge id (`ch_test_…`).",
+            "examples": [
+              "ch_test_0a1b2c3d4e5f60718293a4b5"
+            ]
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "method": "GET",
+      "path": "/charges/{id}",
+      "scope": "charges:read",
+      "tag": "Charges",
+      "idempotencyRequired": false,
+      "successStatus": 200,
+      "readOnly": true
+    },
+    {
+      "name": "getFxQuote",
+      "description": "Retrieve a test FX quote.\n\nLocal test mode only; not deployed by this branch. \n\nRequires scope `fx:read` on the business key. Test keys simulate supported operations; live execution depends on business eligibility and enabled service gates.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 100,
+            "examples": [
+              "fxq_test_1a2b3c4d5e6f708192a3b4c5"
+            ]
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "method": "GET",
+      "path": "/fx/quotes/{id}",
+      "scope": "fx:read",
+      "tag": "Services sandbox",
+      "idempotencyRequired": false,
+      "successStatus": 200,
+      "readOnly": true
+    },
+    {
+      "name": "getFxTrade",
+      "description": "Retrieve a test FX trade.\n\nLocal test mode only; not deployed by this branch. \n\nRequires scope `fx:read` on the business key. Test keys simulate supported operations; live execution depends on business eligibility and enabled service gates.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 100,
+            "examples": [
+              "fxt_test_2b3c4d5e6f708192a3b4c5d6"
+            ]
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "method": "GET",
+      "path": "/fx/trades/{id}",
+      "scope": "fx:read",
+      "tag": "Services sandbox",
+      "idempotencyRequired": false,
+      "successStatus": 200,
+      "readOnly": true
+    },
+    {
+      "name": "getOtp",
+      "description": "Retrieve a test OTP.\n\nLocal test mode only; not deployed by this branch. \n\nRequires scope `otps:read` on the business key. Test keys simulate supported operations; live execution depends on business eligibility and enabled service gates.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 100,
+            "examples": [
+              "otp_test_0f1e2d3c4b5a69788796a5b4"
+            ]
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "method": "GET",
+      "path": "/otps/{id}",
+      "scope": "otps:read",
+      "tag": "Services sandbox",
+      "idempotencyRequired": false,
+      "successStatus": 200,
+      "readOnly": true
+    },
+    {
+      "name": "getOtpPricing",
+      "description": "Retrieve FirstFlip OTP channel prices.\n\nLocal test mode only; not deployed by this branch. Retail is exactly twice the server-configured channel cost. No debit is made.\n\nRequires scope `otps:read` on the business key. Test keys simulate supported operations; live execution depends on business eligibility and enabled service gates.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "method": "GET",
+      "path": "/otps/pricing",
+      "scope": "otps:read",
+      "tag": "Services sandbox",
+      "idempotencyRequired": false,
+      "successStatus": 200,
+      "readOnly": true
+    },
+    {
+      "name": "getPaymentLink",
+      "description": "Retrieve a payment link.\n\nReturns one payment link for this key, including its current `active` state and `uses`.\nDeactivated links are still returned — this tells you why a customer's old URL stopped working.\n\n\nRequires scope `payment_links:read` on the business key. Test keys simulate supported operations; live execution depends on business eligibility and enabled service gates.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The payment link id (`pl_test_…`).",
+            "examples": [
+              "pl_test_1a2b3c4d5e6f70819a0b1c2d"
+            ]
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "method": "GET",
+      "path": "/payment_links/{id}",
+      "scope": "payment_links:read",
+      "tag": "Payment links",
+      "idempotencyRequired": false,
+      "successStatus": 200,
+      "readOnly": true
+    },
+    {
+      "name": "getSubAccount",
+      "description": "Retrieve a sub-account.\n\nReturns one sub-account for this key, whatever its status (`active` or `suspended`). Use it to\nconfirm a suspend or activate took effect; both moves are idempotent, so a retry returns the\nsame object.\n\n\nRequires scope `subaccounts:read` on the business key. Test keys simulate supported operations; live execution depends on business eligibility and enabled service gates.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The sub-account id (`sa_test_…`).",
+            "examples": [
+              "sa_test_2a3b4c5d6e7f80910a1b2c3d"
+            ]
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "method": "GET",
+      "path": "/subaccounts/{id}",
+      "scope": "subaccounts:read",
+      "tag": "Sub-accounts",
+      "idempotencyRequired": false,
+      "successStatus": 200,
+      "readOnly": true
+    },
+    {
+      "name": "getTransfer",
+      "description": "Retrieve a test transfer.\n\nLocal test mode only; not deployed by this branch. \n\nRequires scope `transfers:read` on the business key. Test keys simulate supported operations; live execution depends on business eligibility and enabled service gates.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 100,
+            "examples": [
+              "tr_test_3c4d5e6f708192a3b4c5d6e7"
+            ]
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "method": "GET",
+      "path": "/transfers/{id}",
+      "scope": "transfers:read",
+      "tag": "Services sandbox",
+      "idempotencyRequired": false,
+      "successStatus": 200,
+      "readOnly": true
+    },
+    {
+      "name": "getTransferBatch",
+      "description": "Retrieve a transfer batch.\n\nLocal test mode only; not deployed by this branch. \n\nRequires scope `transfers:read` on the business key. Test keys simulate supported operations; live execution depends on business eligibility and enabled service gates.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 100,
+            "examples": [
+              "trb_test_4d5e6f708192a3b4c5d6e7f8"
+            ]
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "method": "GET",
+      "path": "/transfers/bulk/{id}",
+      "scope": "transfers:read",
+      "tag": "Services sandbox",
+      "idempotencyRequired": false,
+      "successStatus": 200,
+      "readOnly": true
+    },
+    {
+      "name": "getVirtualAccount",
+      "description": "Retrieve a test virtual account.\n\nLocal test mode only; not deployed by this branch. \n\nRequires scope `virtual_accounts:read` on the business key. Test keys simulate supported operations; live execution depends on business eligibility and enabled service gates.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 100,
+            "examples": [
+              "va_test_5e6f708192a3b4c5d6e7f809"
+            ]
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "method": "GET",
+      "path": "/virtual_accounts/{id}",
+      "scope": "virtual_accounts:read",
+      "tag": "Services sandbox",
+      "idempotencyRequired": false,
+      "successStatus": 200,
+      "readOnly": true
+    },
+    {
+      "name": "getVirtualAccountBatch",
+      "description": "Retrieve a virtual-account batch.\n\nLocal test mode only; not deployed by this branch. \n\nRequires scope `virtual_accounts:read` on the business key. Test keys simulate supported operations; live execution depends on business eligibility and enabled service gates.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 100,
+            "examples": [
+              "vab_test_6f708192a3b4c5d6e7f8091a"
+            ]
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "method": "GET",
+      "path": "/virtual_accounts/bulk/{id}",
+      "scope": "virtual_accounts:read",
+      "tag": "Services sandbox",
+      "idempotencyRequired": false,
+      "successStatus": 200,
+      "readOnly": true
+    },
+    {
+      "name": "listCards",
+      "description": "List virtual cards.\n\nReturns your cards, newest first. Filter by `status` (`active`, `frozen` or `closed`) or a\n`created_from`/`created_before` window. Closed cards are listed too — that is how you find a\ncustomer's old card id.\n\nLive mode: this read runs live. A live key gets its own live cards and nothing else — a live page\nnever contains a test card, and each row answers `livemode: true` with `sandbox: null`.\n\n\nRequires scope `cards:read` on the business key. Test keys simulate supported operations; live execution depends on business eligibility and enabled service gates.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 20,
+            "description": "Page size, 1–100 (default 20).",
+            "examples": [
+              20
+            ]
+          },
+          "starting_after": {
+            "type": "string",
+            "examples": [
+              "ch_test_2a3b4c5d6e7f80910a1b2c3d"
+            ],
+            "description": "A cursor — the id of the last object on the previous page. Returns the next page (older) items."
+          },
+          "created_from": {
+            "type": "string",
+            "format": "date-time",
+            "examples": [
+              "2026-11-04T00:00:00Z"
+            ],
+            "description": "Only objects created at or after this instant. RFC 3339; a bare date means midnight UTC.\nWith `created_before` it forms a half-open window, so `created_from=2026-11-04&created_before=2026-11-05`\nis exactly that UTC day, and consecutive windows never count an object twice.\n"
+          },
+          "created_before": {
+            "type": "string",
+            "format": "date-time",
+            "examples": [
+              "2026-11-05T00:00:00Z"
+            ],
+            "description": "Only objects created strictly before this instant. RFC 3339; a bare date means midnight UTC."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "frozen",
+              "closed"
+            ],
+            "examples": [
+              "active"
+            ],
+            "description": "Only cards in this state."
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "method": "GET",
+      "path": "/cards",
+      "scope": "cards:read",
+      "tag": "Cards",
+      "idempotencyRequired": false,
+      "successStatus": 200,
+      "readOnly": true
+    },
+    {
+      "name": "listCardTransactions",
+      "description": "List a card's transactions.\n\nThe card's own ledger, newest first: every credit, withdrawal and authorization attempt,\napproved or declined. This is the reconciliation source — the rows sum to the card's\n`balance`, and a declined row carries the `decline_code` that explains it.\n\nFilter by `type` (`topup`, `withdrawal`, `authorization`) and/or `status` (`completed`,\n`approved`, `declined`), by a `created_from`/`created_before` window, and page with `limit`\nplus `starting_after`.\n\nLive mode: refused — the rows behind a live card are the issuer's, and they are not synced into this\nplatform yet. An empty list would read as \"this card has spent nothing\", which is a guess, so this\nanswers `403 live_precondition_unmet` with `param: transaction_sync`.\n\n\nRequires scope `cards:read` on the business key. Test keys simulate supported operations; live execution depends on business eligibility and enabled service gates.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The card id (`card_test_…`) returned when the card was issued.",
+            "examples": [
+              "card_test_3a4b5c6d7e8f90122a3b4c5d"
+            ]
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 20,
+            "description": "Page size, 1–100 (default 20).",
+            "examples": [
+              20
+            ]
+          },
+          "starting_after": {
+            "type": "string",
+            "examples": [
+              "ch_test_2a3b4c5d6e7f80910a1b2c3d"
+            ],
+            "description": "A cursor — the id of the last object on the previous page. Returns the next page (older) items."
+          },
+          "created_from": {
+            "type": "string",
+            "format": "date-time",
+            "examples": [
+              "2026-11-04T00:00:00Z"
+            ],
+            "description": "Only objects created at or after this instant. RFC 3339; a bare date means midnight UTC.\nWith `created_before` it forms a half-open window, so `created_from=2026-11-04&created_before=2026-11-05`\nis exactly that UTC day, and consecutive windows never count an object twice.\n"
+          },
+          "created_before": {
+            "type": "string",
+            "format": "date-time",
+            "examples": [
+              "2026-11-05T00:00:00Z"
+            ],
+            "description": "Only objects created strictly before this instant. RFC 3339; a bare date means midnight UTC."
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "topup",
+              "withdrawal",
+              "authorization"
+            ],
+            "examples": [
+              "authorization"
+            ],
+            "description": "Only rows of this kind."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "completed",
+              "approved",
+              "declined"
+            ],
+            "examples": [
+              "declined"
+            ],
+            "description": "Only rows in this final state."
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "method": "GET",
+      "path": "/cards/{id}/transactions",
+      "scope": "cards:read",
+      "tag": "Cards",
+      "idempotencyRequired": false,
+      "successStatus": 200,
+      "readOnly": true
+    },
+    {
+      "name": "listCharges",
+      "description": "List charges.\n\nReturns your charges, newest first. Filter by `status`, `reference` or a `created_from`/`created_before` window.\n\nRequires scope `charges:read` on the business key. Test keys simulate supported operations; live execution depends on business eligibility and enabled service gates.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 20,
+            "description": "Page size, 1–100 (default 20).",
+            "examples": [
+              20
+            ]
+          },
+          "starting_after": {
+            "type": "string",
+            "examples": [
+              "ch_test_2a3b4c5d6e7f80910a1b2c3d"
+            ],
+            "description": "A cursor — the id of the last object on the previous page. Returns the next page (older) items."
+          },
+          "created_from": {
+            "type": "string",
+            "format": "date-time",
+            "examples": [
+              "2026-11-04T00:00:00Z"
+            ],
+            "description": "Only objects created at or after this instant. RFC 3339; a bare date means midnight UTC.\nWith `created_before` it forms a half-open window, so `created_from=2026-11-04&created_before=2026-11-05`\nis exactly that UTC day, and consecutive windows never count an object twice.\n"
+          },
+          "created_before": {
+            "type": "string",
+            "format": "date-time",
+            "examples": [
+              "2026-11-05T00:00:00Z"
+            ],
+            "description": "Only objects created strictly before this instant. RFC 3339; a bare date means midnight UTC."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "paid",
+              "expired",
+              "cancelled"
+            ],
+            "examples": [
+              "pending"
+            ],
+            "description": "Only charges in this state."
+          },
+          "reference": {
+            "type": "string",
+            "maxLength": 100,
+            "examples": [
+              "order_1042"
+            ],
+            "description": "Only the charge carrying this merchant reference."
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "method": "GET",
+      "path": "/charges",
+      "scope": "charges:read",
+      "tag": "Charges",
+      "idempotencyRequired": false,
+      "successStatus": 200,
+      "readOnly": true
+    },
+    {
+      "name": "listPaymentLinks",
+      "description": "List payment links.\n\nReturns your payment links, newest first. Filter by `active` or a `created_from`/`created_before` window.\n\nRequires scope `payment_links:read` on the business key. Test keys simulate supported operations; live execution depends on business eligibility and enabled service gates.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 20,
+            "description": "Page size, 1–100 (default 20).",
+            "examples": [
+              20
+            ]
+          },
+          "created_from": {
+            "type": "string",
+            "format": "date-time",
+            "examples": [
+              "2026-11-04T00:00:00Z"
+            ],
+            "description": "Only objects created at or after this instant. RFC 3339; a bare date means midnight UTC.\nWith `created_before` it forms a half-open window, so `created_from=2026-11-04&created_before=2026-11-05`\nis exactly that UTC day, and consecutive windows never count an object twice.\n"
+          },
+          "created_before": {
+            "type": "string",
+            "format": "date-time",
+            "examples": [
+              "2026-11-05T00:00:00Z"
+            ],
+            "description": "Only objects created strictly before this instant. RFC 3339; a bare date means midnight UTC."
+          },
+          "starting_after": {
+            "type": "string",
+            "examples": [
+              "pl_test_1a2b3c4d5e6f70819a0b1c2d"
+            ],
+            "description": "A cursor — the id of the last payment link on the previous page. Returns the next page (older) items."
+          },
+          "active": {
+            "type": "boolean",
+            "examples": [
+              true
+            ],
+            "description": "`true` for active links only, `false` for deactivated only."
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "method": "GET",
+      "path": "/payment_links",
+      "scope": "payment_links:read",
+      "tag": "Payment links",
+      "idempotencyRequired": false,
+      "successStatus": 200,
+      "readOnly": true
+    },
+    {
+      "name": "listSubAccounts",
+      "description": "List sub-accounts.\n\nReturns your sub-accounts, newest first. Filter by `status`, `reference` or a `created_from` / `created_before` window.\n\nRequires scope `subaccounts:read` on the business key. Test keys simulate supported operations; live execution depends on business eligibility and enabled service gates.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 20,
+            "description": "Page size, 1–100 (default 20).",
+            "examples": [
+              20
+            ]
+          },
+          "starting_after": {
+            "type": "string",
+            "examples": [
+              "sa_test_2a3b4c5d6e7f80910a1b2c3d"
+            ],
+            "description": "A cursor — the id of the last sub-account on the previous page. Returns the next page (older) items."
+          },
+          "created_from": {
+            "type": "string",
+            "format": "date-time",
+            "examples": [
+              "2026-11-04T00:00:00Z"
+            ],
+            "description": "Only objects created at or after this instant. RFC 3339; a bare date means midnight UTC.\nWith `created_before` it forms a half-open window, so `created_from=2026-11-04&created_before=2026-11-05`\nis exactly that UTC day, and consecutive windows never count an object twice.\n"
+          },
+          "created_before": {
+            "type": "string",
+            "format": "date-time",
+            "examples": [
+              "2026-11-05T00:00:00Z"
+            ],
+            "description": "Only objects created strictly before this instant. RFC 3339; a bare date means midnight UTC."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "suspended"
+            ],
+            "examples": [
+              "active"
+            ],
+            "description": "Only sub-accounts in this state."
+          },
+          "reference": {
+            "type": "string",
+            "examples": [
+              "acme-lagos"
+            ],
+            "description": "Only the sub-account with this exact `reference`."
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "method": "GET",
+      "path": "/subaccounts",
+      "scope": "subaccounts:read",
+      "tag": "Sub-accounts",
+      "idempotencyRequired": false,
+      "successStatus": 200,
+      "readOnly": true
+    },
+    {
+      "name": "listTransfers",
+      "description": "List test transfers.\n\nNewest first, `limit` 1–100 (default 20). Filter by `status`, by the `batch_id` that created the payout, or by a `created_from` / `created_before` window. Page with `starting_after` set to the last id of the previous page, and stop when `has_more` is false.\n\nRequires scope `transfers:read` on the business key. Test keys simulate supported operations; live execution depends on business eligibility and enabled service gates.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 20,
+            "examples": [
+              20
+            ]
+          },
+          "starting_after": {
+            "type": "string",
+            "maxLength": 100,
+            "examples": [
+              "tr_test_3c4d5e6f708192a3b4c5d6e7"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "new",
+              "pending",
+              "successful",
+              "failed"
+            ],
+            "examples": [
+              "successful"
+            ]
+          },
+          "batch_id": {
+            "type": "string",
+            "maxLength": 100,
+            "examples": [
+              "trb_test_4d5e6f708192a3b4c5d6e7f8"
+            ]
+          },
+          "created_from": {
+            "type": "string",
+            "format": "date-time",
+            "examples": [
+              "2026-11-04T00:00:00Z"
+            ],
+            "description": "Only transfers created at or after this instant. RFC 3339; a bare date means midnight UTC. With `created_before` it forms a half-open window, so consecutive windows never count a transfer twice."
+          },
+          "created_before": {
+            "type": "string",
+            "format": "date-time",
+            "examples": [
+              "2026-11-05T00:00:00Z"
+            ],
+            "description": "Only transfers created strictly before this instant. RFC 3339; a bare date means midnight UTC."
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "method": "GET",
+      "path": "/transfers",
+      "scope": "transfers:read",
+      "tag": "Services sandbox",
+      "idempotencyRequired": false,
+      "successStatus": 200,
+      "readOnly": true
+    },
+    {
+      "name": "resolveBankAccount",
+      "description": "Resolve a documented local test fixture.\n\nLocal test mode only; not deployed by this branch. NG bank, GH bank and GH mobile-money fixtures only. Unknown real account numbers are refused.\n\nRequires scope `verifications:write` on the business key. Test keys simulate supported operations; live execution depends on business eligibility and enabled service gates.\n\nMCP requires an explicit idempotency_key. Reuse it with identical arguments to retry the same logical request.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "body": {
+            "type": "object",
+            "properties": {
+              "country": {
+                "type": "string",
+                "enum": [
+                  "NG",
+                  "GH"
+                ]
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "bank_account",
+                  "mobile_money"
+                ]
+              },
+              "account_bank": {
+                "type": "string",
+                "maxLength": 20
+              },
+              "account_number": {
+                "type": "string",
+                "maxLength": 20
+              }
+            },
+            "required": [
+              "account_bank",
+              "account_number"
+            ],
+            "description": "JSON request body."
+          },
+          "idempotency_key": {
+            "type": "string",
+            "maxLength": 255,
+            "description": "Required by MCP writes. One stable key per logical operation; reuse it with identical arguments after a timeout. The CLI generates and prints a key when omitted."
+          }
+        },
+        "required": [
+          "body"
+        ],
+        "additionalProperties": false
+      },
+      "method": "POST",
+      "path": "/verifications/bank_account",
+      "scope": "verifications:write",
+      "tag": "Services sandbox",
+      "idempotencyRequired": true,
+      "successStatus": 200,
+      "readOnly": false,
+      "bodyExample": {
+        "country": "NG",
+        "account_bank": "044",
+        "account_number": "0690000032"
+      }
+    },
+    {
+      "name": "simulateBvnVerification",
+      "description": "Simulate a consent decision.\n\nLocal test mode only; not deployed by this branch. \n\nRequires scope `verifications:write` on the business key. Test keys simulate supported operations; live execution depends on business eligibility and enabled service gates.\n\nMCP requires an explicit idempotency_key. Reuse it with identical arguments to retry the same logical request.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 100,
+            "examples": [
+              "bvn_test_8192a3b4c5d6e7f8091a2b3c"
+            ]
+          },
+          "body": {
+            "type": "object",
+            "properties": {
+              "outcome": {
+                "type": "string",
+                "enum": [
+                  "verified",
+                  "declined",
+                  "failed"
+                ]
+              }
+            },
+            "required": [
+              "outcome"
+            ],
+            "description": "JSON request body."
+          },
+          "idempotency_key": {
+            "type": "string",
+            "maxLength": 255,
+            "description": "Required by MCP writes. One stable key per logical operation; reuse it with identical arguments after a timeout. The CLI generates and prints a key when omitted."
+          }
+        },
+        "required": [
+          "id",
+          "body"
+        ],
+        "additionalProperties": false
+      },
+      "method": "POST",
+      "path": "/verifications/bvn/{id}/simulate",
+      "scope": "verifications:write",
+      "tag": "Services sandbox",
+      "idempotencyRequired": true,
+      "successStatus": 200,
+      "readOnly": false,
+      "bodyExample": {
+        "outcome": "verified"
+      }
+    },
+    {
+      "name": "simulateCardAuthorization",
+      "description": "Simulate a card authorization.\n\nThe stand-in for a live purchase, and the only way to see an approval or a decline on this\nsurface. An **approved** authorization is the debit: the ledger row (`type: authorization`,\n`status: approved`) and the balance drop commit together. A **declined** one writes the row\nwith `status: declined` and a `decline_code`, and moves no money.\n\nThe decline reason is decided in this order: `card_frozen`, `over_per_transaction_limit`,\n`over_daily_limit`, `over_monthly_limit`, `over_tenant_monthly_limit`, `insufficient_funds`.\nCode your retry logic against those six — a frozen card and an over-limit card are different\ncustomer conversations, and `insufficient_funds` is the one a top-up fixes.\n`over_tenant_monthly_limit` is the only one of the six that is not yours to set: it is a\nceiling FirstFlip places on what all of your cards may spend in a rolling 30 days\n(**$1,000,000** of approved authorization spend per business).\n\nEvery answer is `201`: a decline is a recorded outcome of a real request, not a failed one.\nA closed card is the exception and answers `409 card_closed`. Requires an `Idempotency-Key`\nheader — the same key cannot approve and decline two different attempts.\n\nLive mode: refused with `403 live_mode_unavailable`, and this is the one leg that will stay that way.\n\n\nRequires scope `cards:write` on the business key. Test keys simulate supported operations; live execution depends on business eligibility and enabled service gates.\n\nMCP requires an explicit idempotency_key. Reuse it with identical arguments to retry the same logical request.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The card id (`card_test_…`) returned when the card was issued.",
+            "examples": [
+              "card_test_3a4b5c6d7e8f90122a3b4c5d"
+            ]
+          },
+          "body": {
+            "type": "object",
+            "required": [
+              "amount"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "amount": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "maximum": 100000000000,
+                "description": "The swipe, in major units with at most two decimals.",
+                "examples": [
+                  42.5
+                ]
+              },
+              "merchant": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100,
+                "description": "Free text, stored on the row. It does not change the verdict: no merchant category, country or channel\nis evaluated, because nothing here settles. Send it anyway — it is the field your reconciliation will\nwant when this lane goes live.\n",
+                "examples": [
+                  "BLUE ORIGIN TRAVEL"
+                ]
+              }
+            },
+            "description": "JSON request body."
+          },
+          "idempotency_key": {
+            "type": "string",
+            "maxLength": 255,
+            "description": "Required by MCP writes. One stable key per logical operation; reuse it with identical arguments after a timeout. The CLI generates and prints a key when omitted."
+          }
+        },
+        "required": [
+          "id",
+          "body"
+        ],
+        "additionalProperties": false
+      },
+      "method": "POST",
+      "path": "/cards/{id}/simulate_authorization",
+      "scope": "cards:write",
+      "tag": "Cards",
+      "idempotencyRequired": true,
+      "successStatus": 201,
+      "readOnly": false,
+      "bodyExample": {
+        "amount": 25,
+        "merchant": "Netflix"
+      }
+    },
+    {
+      "name": "simulateChargePayment",
+      "description": "Simulate payment (test mode).\n\n**Test mode only.** Marks a `pending` charge as `paid`, exactly as a real customer payment\nwould, and emits `charge.paid`. Use it to exercise your webhook and fulfilment flow without\nmoving crypto. Any non-pending charge returns `409 charge_not_pending`. Requires an\n`Idempotency-Key` header. (The same effect is available to a human tester via the\n\"Simulate payment\" button on the hosted pay page.)\n\n\nRequires scope `charges:write` on the business key. Test keys simulate supported operations; live execution depends on business eligibility and enabled service gates.\n\nMCP requires an explicit idempotency_key. Reuse it with identical arguments to retry the same logical request.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The charge id (`ch_test_…`).",
+            "examples": [
+              "ch_test_0a1b2c3d4e5f60718293a4b5"
+            ]
+          },
+          "idempotency_key": {
+            "type": "string",
+            "maxLength": 255,
+            "description": "Required by MCP writes. One stable key per logical operation; reuse it with identical arguments after a timeout. The CLI generates and prints a key when omitted."
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "method": "POST",
+      "path": "/charges/{id}/simulate_payment",
+      "scope": "charges:write",
+      "tag": "Charges",
+      "idempotencyRequired": true,
+      "successStatus": 200,
+      "readOnly": false
+    },
+    {
+      "name": "simulateFxQuote",
+      "description": "Complete a processing test quote.\n\nLocal test mode only; not deployed by this branch. \n\nRequires scope `fx:write` on the business key. Test keys simulate supported operations; live execution depends on business eligibility and enabled service gates.\n\nMCP requires an explicit idempotency_key. Reuse it with identical arguments to retry the same logical request.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 100,
+            "examples": [
+              "fxq_test_1a2b3c4d5e6f708192a3b4c5"
+            ]
+          },
+          "body": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "ready",
+                  "failed",
+                  "expired"
+                ]
+              }
+            },
+            "required": [
+              "status"
+            ],
+            "description": "JSON request body."
+          },
+          "idempotency_key": {
+            "type": "string",
+            "maxLength": 255,
+            "description": "Required by MCP writes. One stable key per logical operation; reuse it with identical arguments after a timeout. The CLI generates and prints a key when omitted."
+          }
+        },
+        "required": [
+          "id",
+          "body"
+        ],
+        "additionalProperties": false
+      },
+      "method": "POST",
+      "path": "/fx/quotes/{id}/simulate",
+      "scope": "fx:write",
+      "tag": "Services sandbox",
+      "idempotencyRequired": true,
+      "successStatus": 200,
+      "readOnly": false,
+      "bodyExample": {
+        "status": "ready"
+      }
+    },
+    {
+      "name": "simulateFxTrade",
+      "description": "Simulate a trade result.\n\nLocal test mode only; not deployed by this branch. \n\nRequires scope `fx:write` on the business key. Test keys simulate supported operations; live execution depends on business eligibility and enabled service gates.\n\nMCP requires an explicit idempotency_key. Reuse it with identical arguments to retry the same logical request.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 100,
+            "examples": [
+              "fxt_test_2b3c4d5e6f708192a3b4c5d6"
+            ]
+          },
+          "body": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "pending",
+                  "settled",
+                  "failed"
+                ]
+              }
+            },
+            "required": [
+              "status"
+            ],
+            "description": "JSON request body."
+          },
+          "idempotency_key": {
+            "type": "string",
+            "maxLength": 255,
+            "description": "Required by MCP writes. One stable key per logical operation; reuse it with identical arguments after a timeout. The CLI generates and prints a key when omitted."
+          }
+        },
+        "required": [
+          "id",
+          "body"
+        ],
+        "additionalProperties": false
+      },
+      "method": "POST",
+      "path": "/fx/trades/{id}/simulate",
+      "scope": "fx:write",
+      "tag": "Services sandbox",
+      "idempotencyRequired": true,
+      "successStatus": 200,
+      "readOnly": false,
+      "bodyExample": {
+        "status": "settled"
+      }
+    },
+    {
+      "name": "simulateTransfer",
+      "description": "Simulate a transfer result.\n\nLocal test mode only; not deployed by this branch. \n\nRequires scope `transfers:write` on the business key. Test keys simulate supported operations; live execution depends on business eligibility and enabled service gates.\n\nMCP requires an explicit idempotency_key. Reuse it with identical arguments to retry the same logical request.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 100,
+            "examples": [
+              "tr_test_3c4d5e6f708192a3b4c5d6e7"
+            ]
+          },
+          "body": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "pending",
+                  "successful",
+                  "failed"
+                ]
+              }
+            },
+            "required": [
+              "status"
+            ],
+            "description": "JSON request body."
+          },
+          "idempotency_key": {
+            "type": "string",
+            "maxLength": 255,
+            "description": "Required by MCP writes. One stable key per logical operation; reuse it with identical arguments after a timeout. The CLI generates and prints a key when omitted."
+          }
+        },
+        "required": [
+          "id",
+          "body"
+        ],
+        "additionalProperties": false
+      },
+      "method": "POST",
+      "path": "/transfers/{id}/simulate",
+      "scope": "transfers:write",
+      "tag": "Services sandbox",
+      "idempotencyRequired": true,
+      "successStatus": 200,
+      "readOnly": false,
+      "bodyExample": {
+        "status": "successful"
+      }
+    },
+    {
+      "name": "simulateVirtualAccountPayment",
+      "description": "Simulate a transfer into a test account.\n\nLocal test mode only; not deployed by this branch. NGN underpayments reverse; excess is reversed. GHS requires exact expected amount. No wallet is credited.\n\nRequires scope `virtual_accounts:write` on the business key. Test keys simulate supported operations; live execution depends on business eligibility and enabled service gates.\n\nMCP requires an explicit idempotency_key. Reuse it with identical arguments to retry the same logical request.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 100,
+            "examples": [
+              "va_test_5e6f708192a3b4c5d6e7f809"
+            ]
+          },
+          "body": {
+            "type": "object",
+            "properties": {
+              "amount": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "maximum": 100000000000,
+                "multipleOf": 0.01
+              },
+              "reference": {
+                "type": "string",
+                "maxLength": 100
+              }
+            },
+            "required": [
+              "amount",
+              "reference"
+            ],
+            "description": "JSON request body."
+          },
+          "idempotency_key": {
+            "type": "string",
+            "maxLength": 255,
+            "description": "Required by MCP writes. One stable key per logical operation; reuse it with identical arguments after a timeout. The CLI generates and prints a key when omitted."
+          }
+        },
+        "required": [
+          "id",
+          "body"
+        ],
+        "additionalProperties": false
+      },
+      "method": "POST",
+      "path": "/virtual_accounts/{id}/simulate_payment",
+      "scope": "virtual_accounts:write",
+      "tag": "Services sandbox",
+      "idempotencyRequired": true,
+      "successStatus": 201,
+      "readOnly": false,
+      "bodyExample": {
+        "amount": 100,
+        "reference": "{{$guid}}"
+      }
+    },
+    {
+      "name": "suspendSubAccount",
+      "description": "Suspend a sub-account.\n\nYour own control over your tenant: marks it `suspended`. Idempotent — suspending an\nalready-suspended sub-account returns it unchanged. Requires an `Idempotency-Key` header.\n\n\nRequires scope `subaccounts:write` on the business key. Test keys simulate supported operations; live execution depends on business eligibility and enabled service gates.\n\nMCP requires an explicit idempotency_key. Reuse it with identical arguments to retry the same logical request.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The sub-account id (`sa_test_…`).",
+            "examples": [
+              "sa_test_2a3b4c5d6e7f80910a1b2c3d"
+            ]
+          },
+          "idempotency_key": {
+            "type": "string",
+            "maxLength": 255,
+            "description": "Required by MCP writes. One stable key per logical operation; reuse it with identical arguments after a timeout. The CLI generates and prints a key when omitted."
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "method": "POST",
+      "path": "/subaccounts/{id}/suspend",
+      "scope": "subaccounts:write",
+      "tag": "Sub-accounts",
+      "idempotencyRequired": true,
+      "successStatus": 200,
+      "readOnly": false
+    },
+    {
+      "name": "unfreezeCard",
+      "description": "Unfreeze a virtual card.\n\nReturns a frozen card to `active` and clears `frozen_reason`. A frozen card keeps its balance,\nso unfreezing restores spending without funding it again.\n\nA closed card cannot be reopened — `409 card_closed` says to issue a new one. Unfreezing a card\nthat is already active answers `200` with its current state. Requires an `Idempotency-Key`\nheader. No request body is read.\n\nLive mode: this leg runs live with the same ordering as freeze — the issuer releases the card first,\nand our record follows only if it agrees. A refusing issuer answers `503 service_unavailable` and the\ncard stays `frozen`.\n\n\nRequires scope `cards:write` on the business key. Test keys simulate supported operations; live execution depends on business eligibility and enabled service gates.\n\nMCP requires an explicit idempotency_key. Reuse it with identical arguments to retry the same logical request.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The card id (`card_test_…`) returned when the card was issued.",
+            "examples": [
+              "card_test_3a4b5c6d7e8f90122a3b4c5d"
+            ]
+          },
+          "idempotency_key": {
+            "type": "string",
+            "maxLength": 255,
+            "description": "Required by MCP writes. One stable key per logical operation; reuse it with identical arguments after a timeout. The CLI generates and prints a key when omitted."
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "method": "POST",
+      "path": "/cards/{id}/unfreeze",
+      "scope": "cards:write",
+      "tag": "Cards",
+      "idempotencyRequired": true,
+      "successStatus": 200,
+      "readOnly": false
+    },
+    {
+      "name": "updateCardSpendLimits",
+      "description": "Update a card's spend limits.\n\nSets the merchant-side ceilings an authorization is judged against. Send at least one of\n`daily_limit`, `per_transaction_limit` or `monthly_limit`; the axes you leave out are left\nalone, and an explicit `null` clears that axis (no ceiling).\n\n`daily_limit` and `monthly_limit` are rolling windows — 24 hours and 30 days from now, not a\ncalendar day or month — and they are summed from the **committed** approvals at the moment the\nspend lands, not from a read taken earlier. That is what makes the ceiling hold when thirty\nauthorizations arrive at once. `per_transaction_limit` is a single-authorization maximum and is\nchecked before either window. Requires an `Idempotency-Key` header.\n\nLive mode: refused — the issuer has rejected every amount format this platform has tried on that\ncall, and a ceiling sent in the wrong unit is worse than none. Writing it only on our side would be\na limit a live card does not actually obey, so this answers `403 live_precondition_unmet` with\n`param: limit_format`.\n\n\nRequires scope `cards:write` on the business key. Test keys simulate supported operations; live execution depends on business eligibility and enabled service gates.\n\nMCP requires an explicit idempotency_key. Reuse it with identical arguments to retry the same logical request.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The card id (`card_test_…`) returned when the card was issued.",
+            "examples": [
+              "card_test_3a4b5c6d7e8f90122a3b4c5d"
+            ]
+          },
+          "body": {
+            "type": "object",
+            "description": "JSON request body. Change the spend ceilings. Only the axes you name are written: an omitted field means \"leave it alone\",\nan explicit `null` means \"remove that ceiling\". That distinction is the whole point — a partial update\ncannot silently unlimit an axis you forgot to send.\n",
+            "minProperties": 1,
+            "additionalProperties": false,
+            "properties": {
+              "daily_limit": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "minimum": 0.01,
+                "description": "Rolling 24 hours, major units."
+              },
+              "per_transaction_limit": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "minimum": 0.01,
+                "description": "Largest single authorization, major units."
+              },
+              "monthly_limit": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "minimum": 0.01,
+                "description": "Rolling 30 days, major units."
+              }
+            }
+          },
+          "idempotency_key": {
+            "type": "string",
+            "maxLength": 255,
+            "description": "Required by MCP writes. One stable key per logical operation; reuse it with identical arguments after a timeout. The CLI generates and prints a key when omitted."
+          }
+        },
+        "required": [
+          "id",
+          "body"
+        ],
+        "additionalProperties": false
+      },
+      "method": "POST",
+      "path": "/cards/{id}/spend_limits",
+      "scope": "cards:write",
+      "tag": "Cards",
+      "idempotencyRequired": true,
+      "successStatus": 200,
+      "readOnly": false,
+      "bodyExample": {
+        "daily_limit": 100,
+        "monthly_limit": null
+      }
+    },
+    {
+      "name": "validateOtp",
+      "description": "Validate a test OTP once.\n\nLocal test mode only; not deployed by this branch. \n\nRequires scope `otps:write` on the business key. Test keys simulate supported operations; live execution depends on business eligibility and enabled service gates.\n\nMCP requires an explicit idempotency_key. Reuse it with identical arguments to retry the same logical request.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 100,
+            "examples": [
+              "otp_test_0f1e2d3c4b5a69788796a5b4"
+            ]
+          },
+          "body": {
+            "type": "object",
+            "properties": {
+              "otp": {
+                "type": "string",
+                "pattern": "^\\d{5,7}$"
+              }
+            },
+            "required": [
+              "otp"
+            ],
+            "description": "JSON request body."
+          },
+          "idempotency_key": {
+            "type": "string",
+            "maxLength": 255,
+            "description": "Required by MCP writes. One stable key per logical operation; reuse it with identical arguments after a timeout. The CLI generates and prints a key when omitted."
+          }
+        },
+        "required": [
+          "id",
+          "body"
+        ],
+        "additionalProperties": false
+      },
+      "method": "POST",
+      "path": "/otps/{id}/validate",
+      "scope": "otps:write",
+      "tag": "Services sandbox",
+      "idempotencyRequired": true,
+      "successStatus": 200,
+      "readOnly": false,
+      "bodyExample": {
+        "otp": "123456"
+      }
+    },
+    {
+      "name": "withdrawCard",
+      "description": "Withdraw from a virtual card.\n\nTakes money back off the card (`type: withdrawal`, `status: completed`). The same commit rule\nas funding applies: row and balance move together.\n\nA withdrawal is refused with `409 card_not_active` unless the card is `active` — a freeze stops\nmoney leaving, and a close stops everything (`409 card_closed`). An amount larger than the\nbalance returns `400 insufficient_balance` with `param: amount`, and nothing moves. Requires\nan `Idempotency-Key` header.\n\nLive mode: refused — taking real money off a card needs the withdrawal rail, and FirstFlip has not\nproved that provider verb yet. This answers `403 live_precondition_unmet` with `param: withdrawal`\nbefore your amount is read.\n\n\nRequires scope `cards:write` on the business key. Test keys simulate supported operations; live execution depends on business eligibility and enabled service gates.\n\nMCP requires an explicit idempotency_key. Reuse it with identical arguments to retry the same logical request.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The card id (`card_test_…`) returned when the card was issued.",
+            "examples": [
+              "card_test_3a4b5c6d7e8f90122a3b4c5d"
+            ]
+          },
+          "body": {
+            "type": "object",
+            "required": [
+              "amount"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "amount": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "maximum": 100000000000,
+                "description": "Major units with at most two decimals (so `10.005` is a `400`, and so are `true`, `[]` and `\"10\"` —\nno coercion, because a silently converted amount is a reconciliation break you find later).\n",
+                "examples": [
+                  100
+                ]
+              }
+            },
+            "description": "JSON request body."
+          },
+          "idempotency_key": {
+            "type": "string",
+            "maxLength": 255,
+            "description": "Required by MCP writes. One stable key per logical operation; reuse it with identical arguments after a timeout. The CLI generates and prints a key when omitted."
+          }
+        },
+        "required": [
+          "id",
+          "body"
+        ],
+        "additionalProperties": false
+      },
+      "method": "POST",
+      "path": "/cards/{id}/withdraw",
+      "scope": "cards:write",
+      "tag": "Cards",
+      "idempotencyRequired": true,
+      "successStatus": 201,
+      "readOnly": false,
+      "bodyExample": {
+        "amount": 40
+      }
+    }
+  ]
+}

@@ -1,0 +1,3423 @@
+# FirstFlip Business API — OpenAPI 3.1 specification.
+#
+# SINGLE SOURCE OF TRUTH. The API Bible, the Postman collection, the reference site and the SDKs are
+# all generated from this file. Every path, field and error below is grounded in the implementation
+# and checked against it by `scripts/check-service-contract.js`. Nothing here is aspirational:
+# planned-but-not-built work lives under `x-roadmap`, never as a live path.
+#
+# Scope: the public /v1 Developer Platform surface, authenticated with an `ffk_` secret key. No leg of this
+# surface moves real money today, and a live key still cannot be minted. `/v1/cards` is the one resource that
+# answers a live key leg by leg rather than refusing it; every other resource refuses one outright.
+# (Keys and webhook endpoints are minted by
+# the business owner over the session-authenticated /api/business/developer surface — an API, not yet a
+# screen in the app — which is out of scope for this public-API spec; see x-roadmap and the
+# Authentication section.)
+openapi: 3.1.0
+
+info:
+  title: FirstFlip Business API
+  version: "2026-11-02"
+  summary: Accept crypto payments, create reusable payment links, and receive signed webhooks.
+  description: |
+    The FirstFlip Business API lets a business accept payments and build on FirstFlip
+    programmatically. It is a JSON, resource-oriented HTTP API: predictable paths, `Bearer`
+    secret-key auth, an `Idempotency-Key` on every write, cursor pagination, and one canonical
+    error shape.
+
+    ## Base URL & versioning
+    All paths are prefixed with `/v1` (the version is in the path; a breaking change means `/v2`,
+    additive changes stay in `/v1`). The sandbox base URL is `https://api.firstflip.ng/v1`.
+
+    > **Test mode only.** Every endpoint runs in TEST MODE. No real money moves. Use your
+    > `ffk_test_…` secret key. Live mode is **not yet enabled**; a live key returns
+    > `403 live_mode_unavailable` on money endpoints, and the same code you write against the
+    > sandbox will work unchanged when live mode opens.
+    >
+    > One surface is ahead of that rule: `/v1/cards` answers a live key **leg by leg** instead of with one
+    > blanket refusal. Listing, retrieval, freeze and unfreeze already run live, and every leg that would move
+    > or release money — including the transaction statement list — returns `403 live_precondition_unmet` with
+    > the missing rail named in `error.param`; see the Cards tag. Nothing else in `/v1` has that wiring yet.
+
+    ## Authentication
+    Send your secret key as a bearer token on every request to a non-public endpoint:
+
+    ```
+    Authorization: Bearer $FIRSTFLIP_SECRET_KEY
+    ```
+
+    A secret key looks like `ffk_test_…` (test) or `ffk_live_…` (live). It is shown once, when it is
+    created, and only its hash is stored — if you lose it, rotate it. The key is the sole source of
+    identity: FirstFlip resolves the owning business from the key, so there is no account id to send and
+    no way to act for another business. Keep secret keys server-side; never ship one in a browser, mobile
+    app, or public repository. You mint and revoke keys yourself over the session-authenticated
+    `POST /api/business/developer/keys` (a screen for it is still to come — during the beta, ask FirstFlip
+    and we issue your test key over a private channel). There you choose the key's `scopes` and pin it to
+    up to 20 exact `ipAllowlist` addresses.
+
+    ## Scopes
+    A key carries a scope list chosen when it is created. Every endpoint names the one scope it
+    needs; a surface that both reads and writes has a pair:
+
+    | Scope | Endpoints |
+    |---|---|
+    | `account:read` | `GET /account` |
+    | `charges:read` / `charges:write` | charges: list/get, create, cancel, simulate payment |
+    | `payment_links:read` / `payment_links:write` | payment links: list/get, create, deactivate |
+    | `subaccounts:read` / `subaccounts:write` | sub-accounts: list/get, create, suspend, activate |
+    | `cards:read` / `cards:write` | cards: list/get, issue, fund, withdraw, freeze/unfreeze, close, spend limits, simulate authorization, transactions |
+    | `otps:read` / `otps:write` | OTP pricing/lookup, create, validate |
+    | `fx:read` / `fx:write` | FX quotes and trades: get, create, simulate |
+    | `virtual_accounts:read` / `virtual_accounts:write` | virtual accounts: get/list batch, create, bulk, deactivate, simulate payment |
+    | `verifications:read` / `verifications:write` | BVN and bank-account verification, simulate |
+    | `transfers:read` / `transfers:write` | transfers (payouts): list/get, create, bulk, get batch, simulate |
+    | `assistant:ask` | `POST /assistant` |
+
+    Every operation that requires a scope declares it as `x-required-scope`, so a tool can choose
+    the right key without mapping this table by hand.
+
+    Send `scopes` when creating a key to mint a least-privilege credential — a checkout widget only
+    needs `payment_links:write`, a reconciliation job only needs `charges:read`, a payout service
+    only needs `transfers:write`. A key created without a scope list (including every key that
+    predates scopes) can do everything its mode allows. An endpoint the key's scopes don't cover
+    returns `403 insufficient_scope`, which names the scope it wanted. Scopes are never widened
+    after creation: rotate a key that needs more access.
+
+    ## Idempotency
+    Every `POST` that creates or changes something requires an `Idempotency-Key` header: a unique
+    string you generate (a UUID v4 is ideal), up to 255 characters. If a request is interrupted,
+    safely retry it with the **same** key — FirstFlip replays the original response (with
+    `Idempotent-Replayed: true`) instead of acting twice. Reusing a key with a **different** body is
+    rejected with `422 idempotency_key_reused`. A request still in flight returns
+    `409 idempotency_in_progress`; retry it. Keys are scoped to your business and mode and expire
+    after 24 hours. (`POST /assistant` and the public hosted pages do not take an idempotency key.)
+
+    ## Pagination
+    List endpoints return `{ "object": "list", "data": [ … ], "has_more": true|false }`, newest
+    first. Page with `limit` (1–100, default 20) and `starting_after=<id of the last item>`. Paging
+    is stable: even when many records share a timestamp (a bulk payout writes its whole batch at
+    once), following `starting_after` never skips or repeats an item.
+
+    Every list also takes a `created_from` / `created_before` window (RFC 3339; a bare date means
+    midnight UTC). It is half-open — `created_from` inclusive, `created_before` exclusive — so
+    `created_from=2026-11-04&created_before=2026-11-05` is exactly that UTC day, and walking
+    consecutive windows counts every object once.
+
+    ## Errors
+    Every error — including malformed JSON, auth failures, rate limits and outages — uses one shape:
+
+    ```json
+    { "error": { "type": "invalid_request_error", "code": "invalid_parameter",
+                 "message": "currency must be NGN or USD", "param": "currency" } }
+    ```
+
+    `type` groups the failure, `code` is the stable machine-readable reason, `message` is
+    human-readable, and `param` names the offending field when there is one (otherwise `null`).
+
+    Every response — success or failure, including `401`, `404`, `429` and `503` — also carries a
+    `Request-Id` header: a UUID generated for that one request. A value you send is ignored, so an id
+    quoted in a support ticket always names a request we can find. Include it when you contact us
+    about an error. Every response is also marked `Cache-Control: no-store`: account data, balances
+    and hosted pages must never sit in a shared or browser cache, where a stale page is worse than a
+    failed one.
+    The full catalog is `x-error-codes` below; the summary table:
+
+    | HTTP | type | code | retryable | meaning |
+    |---|---|---|---|---|
+    | 400 | invalid_request_error | invalid_json | no | Request body is not valid JSON |
+    | 400 | invalid_request_error | invalid_parameter | no | A parameter is missing or invalid (see `param`) |
+    | 400 | invalid_request_error | amount_too_small | no | `amount` is below the minimum charge |
+    | 400 | invalid_request_error | insufficient_balance | no | A card does not hold the amount you asked to take off it |
+    | 400 | invalid_request_error | question_required | no | Assistant: no question was sent |
+    | 400 | invalid_request_error | question_too_long | no | Assistant: question exceeds 2000 characters |
+    | 400 | idempotency_error | idempotency_key_required | no | `Idempotency-Key` header missing on a POST |
+    | 401 | authentication_error | invalid_api_key | no | Key missing, malformed, revoked, or wrong mode |
+    | 401 | authentication_error | key_expired | no | This key reached its expiry date; create or rotate a key |
+    | 403 | authentication_error | ip_not_allowed | no | Caller IP is not on this key's allow-list |
+    | 403 | authentication_error | business_inactive | no | The business that owns the key is not active |
+    | 403 | authentication_error | insufficient_scope | no | This key was created without the scope the endpoint requires |
+    | 403 | invalid_request_error | live_mode_unavailable | no | Live mode is not open yet; use a test key |
+    | 403 | invalid_request_error | live_precondition_unmet | no | This live leg is waiting on a named platform rail; `error.param` says which one (cards only today) |
+    | 404 | invalid_request_error | not_found | no | No such route |
+    | 404 | invalid_request_error | resource_missing | no | No such charge/payment link for this key |
+    | 409 | invalid_request_error | charge_not_pending | no | Charge is not in a state that allows this action |
+    | 409 | invalid_request_error | subaccount_not_active | no | Sub-account is already suspended and cannot be suspended again |
+    | 409 | invalid_request_error | subaccount_not_suspended | no | Sub-account is already active and cannot be activated again |
+    | 409 | invalid_request_error | duplicate_reference | no | `reference` already used by this business (charges, sub-accounts, cards) |
+    | 409 | invalid_request_error | card_closed | no | Card is closed — every action on it is refused, including unfreeze |
+    | 409 | invalid_request_error | card_not_active | no | Card is frozen, so a withdrawal was refused; unfreeze it first |
+    | 409 | invalid_request_error | card_limit_reached | no | This key already holds its 250 open cards; close one first |
+    | 409 | idempotency_error | idempotency_in_progress | yes | A request with this key is still running; retry |
+    | 413 | invalid_request_error | body_too_large | no | Request body exceeds the size limit |
+    | 422 | idempotency_error | idempotency_key_reused | no | Key reused with a different request body |
+    | 429 | rate_limit_error | rate_limited | yes | Too many requests; honor `Retry-After` |
+    | 500 | api_error | internal_error | yes | Unexpected error on FirstFlip's side |
+    | 503 | api_error | service_unavailable | yes | FirstFlip is briefly unavailable; see `Retry-After` |
+    | 503 | api_error | rate_unavailable | yes | Exchange rates are briefly unavailable; retry |
+    | 503 | api_error | assistant_disabled | no | The developer assistant is switched off |
+    | 503 | api_error | assistant_unavailable | yes | The assistant is temporarily unavailable |
+
+    ## Rate limits
+    Limits are enforced per secret key (and a per-IP backstop). On `429` the response carries
+    `Retry-After` (seconds); authenticated responses also carry `X-RateLimit-Limit` and
+    `X-RateLimit-Remaining`. Current windows: reads 300/min, writes 60/min, assistant 30/hour,
+    per-IP backstop 1200/min, hosted sandbox pages 30/min per IP. Retry a `429` after the stated
+    delay, reusing the same `Idempotency-Key` on writes.
+
+    ## Webhooks
+    FirstFlip POSTs signed events to the endpoint(s) you register over
+    `POST /api/business/developer/webhooks`. Verify the
+    `FirstFlip-Signature` header over the **raw** request body before trusting a webhook — see the
+    `webhooks` section.
+
+    ## Compliance
+    FirstFlip is registered (not licensed) and shows integer-free major-unit amounts with an
+    explicit currency on every money field. Secrets are never logged. Partner/rail names never
+    appear in any request, response, field, error, or webhook payload.
+  contact:
+    name: FirstFlip Developer Support
+    url: https://firstflip.ng
+  license:
+    name: © First Flip Ltd. All rights reserved. You may read these docs and use them to integrate with the FirstFlip API. The SDK and code samples are MIT (see LICENSE).
+    identifier: LicenseRef-FirstFlip-Docs
+  x-logo:
+    altText: FirstFlip
+
+externalDocs:
+  description: FirstFlip developer portal (guides, quickstart, SDKs, Postman collection)
+  url: https://firstflip.ng/developers
+
+servers:
+  - url: https://api.firstflip.ng/v1
+    description: |
+      Sandbox (test mode). The only base URL available today; the entire /v1 surface is test-mode
+      and moves no money. Live mode is not yet enabled.
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: Account
+    description: Identify the business behind the current secret key.
+  - name: Charges
+    description: A one-time request for payment. Create it, share its hosted URL, and act on `charge.paid`.
+  - name: Payment links
+    description: A reusable link. Each visitor who opens it gets a fresh charge; shareable and payable many times.
+  - name: Sub-accounts
+    description: >
+      The tenant layer: your own end-users, provisioned under your business. Sandbox identities
+      only today — a sub-account holds no wallet and accepts no real money (see `sandbox`).
+  - name: Cards
+    description: >
+      USD virtual cards a business issues to its own customers, funded and spent through your API.
+      In test mode the whole lifecycle is real in shape and nothing is real in money: no PAN is issued,
+      no issuer is contacted, and no test balance can become spendable. A live key is answered leg by
+      leg rather than with one blanket refusal, because the rails are not all missing at the same rate.
+      Listing, retrieval, freeze and unfreeze run live today — freeze and unfreeze ask the issuer first
+      and only then move our own record, so an issuer that refuses leaves the card active and answers
+      `503 service_unavailable`. Issuing, funding, withdrawal, close, spend limits and the transaction
+      list each answer `403 live_precondition_unmet` and name the rail they are waiting on in
+      `error.param`: `cardholder`, `funding`, `withdrawal`, `settlement`, `limit_format` or
+      `transaction_sync`. A `param` of `provider` is about your card row, not a rail: that live row
+      carries no issuer id, or an issuer this server has no card code for. The authorization simulator
+      stays test-only under every key — a live authorization is decided by the issuer, not by us.
+      No live leg moves money yet.
+  - name: Assistant
+    description: A documentation Q&A helper that answers only from the published FirstFlip docs.
+  - name: Hosted pages
+    description: >
+      Public, browser-facing pages (the token in the URL is the capability — no secret key). These
+      return HTML, not JSON. In test mode the pay page carries a "Simulate payment" button.
+  - name: Services sandbox
+    description: >
+      Test-mode money-adjacent services: FX quotes and trades, virtual accounts, BVN and bank-account
+      verification, one-time passwords, transfers and bulk payouts. These record outcomes; they never
+      move real money.
+  - name: Webhooks
+    description: >
+      Deliveries to your endpoint, signed with `FirstFlip-Signature`. Verify over the raw body and
+      deduplicate on `FirstFlip-Event-Id`; any non-2xx or timeout is retried with backoff.
+
+paths:
+  /account:
+    get:
+      operationId: getAccount
+      x-display-name: "Retrieve the current account"
+      x-required-scope: account:read
+      tags: [Account]
+      summary: Retrieve the current account
+      description: |
+        Returns the business tied to the secret key you sent, the key's mode, and the masked key.
+        This is the ideal first call to confirm your credentials and environment.
+      responses:
+        "200":
+          headers:
+            Request-Id: { $ref: "#/components/headers/RequestId" }
+            Cache-Control: { $ref: "#/components/headers/CacheControl" }
+            X-RateLimit-Limit: { $ref: "#/components/headers/XRateLimitLimit" }
+            X-RateLimit-Remaining: { $ref: "#/components/headers/XRateLimitRemaining" }
+          description: The account for this key.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Account" }
+              example:
+                object: account
+                business_name: Acme Stores
+                livemode: false
+                key: ffk_test_…a1b2
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { $ref: "#/components/responses/InternalError" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+
+  /charges:
+    post:
+      operationId: createCharge
+      x-display-name: "Create a charge"
+      x-required-scope: charges:write
+      tags: [Charges]
+      summary: Create a charge
+      description: |
+        Creates a one-time charge for an amount you set in major units. FirstFlip quotes the exact
+        crypto amount the customer must pay (asset + network you chose, plus the receive fee) and
+        returns a `hosted_url` where they complete payment. In test mode the pay address is a
+        labelled `TEST-…` placeholder and payment is simulated — nothing moves money.
+
+        Requires an `Idempotency-Key` header. If you pass a `reference`, it must be unique within
+        your business (a repeat returns `409 duplicate_reference`).
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateChargeRequest" }
+            example:
+              amount: 25000
+              currency: NGN
+              description: Order #1048
+              reference: order_1048
+              pay_asset: USDT
+              pay_network: trc20
+              customer: { name: Jane Doe, email: jane@example.com }
+              metadata: { order_id: "1048", channel: web }
+      responses:
+        "201":
+          headers:
+            Request-Id: { $ref: "#/components/headers/RequestId" }
+            Cache-Control: { $ref: "#/components/headers/CacheControl" }
+            X-RateLimit-Limit: { $ref: "#/components/headers/XRateLimitLimit" }
+            X-RateLimit-Remaining: { $ref: "#/components/headers/XRateLimitRemaining" }
+            Idempotent-Replayed: { $ref: "#/components/headers/IdempotentReplayed" }
+            Idempotency-Status-Version: { $ref: "#/components/headers/IdempotencyStatusVersion" }
+            Idempotency-Key-State: { $ref: "#/components/headers/IdempotencyKeyState" }
+            Idempotent-Original-At: { $ref: "#/components/headers/IdempotentOriginalAt" }
+            Idempotency-Reference: { $ref: "#/components/headers/IdempotencyReference" }
+          description: The charge was created.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Charge" }
+              examples:
+                pending:
+                  $ref: "#/components/examples/chargePending"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { $ref: "#/components/responses/InternalError" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+    get:
+      operationId: listCharges
+      x-display-name: "List charges"
+      x-required-scope: charges:read
+      tags: [Charges]
+      summary: List charges
+      description: Returns your charges, newest first. Filter by `status`, `reference` or a `created_from`/`created_before` window.
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/StartingAfter"
+        - $ref: "#/components/parameters/CreatedFrom"
+        - $ref: "#/components/parameters/CreatedBefore"
+        - name: status
+          in: query
+          required: false
+          description: Only charges in this state.
+          schema:
+            type: string
+            enum: [pending, paid, expired, cancelled]
+            example: pending
+        - name: reference
+          in: query
+          required: false
+          description: Only the charge carrying this merchant reference.
+          schema: { type: string, maxLength: 100, example: order_1042 }
+      responses:
+        "200":
+          headers:
+            Request-Id: { $ref: "#/components/headers/RequestId" }
+            Cache-Control: { $ref: "#/components/headers/CacheControl" }
+            X-RateLimit-Limit: { $ref: "#/components/headers/XRateLimitLimit" }
+            X-RateLimit-Remaining: { $ref: "#/components/headers/XRateLimitRemaining" }
+          description: A page of charges.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ChargeList" }
+              examples:
+                page:
+                  $ref: "#/components/examples/chargeList"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { $ref: "#/components/responses/InternalError" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+
+  /charges/{id}:
+    get:
+      operationId: getCharge
+      x-display-name: "Retrieve a charge"
+      x-required-scope: charges:read
+      tags: [Charges]
+      summary: Retrieve a charge
+      description: |
+        Fetches a charge by id. A pending charge past its `expires_at` is lazily transitioned to
+        `expired` (and `charge.expired` is emitted) the first time it is read.
+      parameters:
+        - $ref: "#/components/parameters/ChargeId"
+      responses:
+        "200":
+          headers:
+            Request-Id: { $ref: "#/components/headers/RequestId" }
+            Cache-Control: { $ref: "#/components/headers/CacheControl" }
+            X-RateLimit-Limit: { $ref: "#/components/headers/XRateLimitLimit" }
+            X-RateLimit-Remaining: { $ref: "#/components/headers/XRateLimitRemaining" }
+          description: The charge.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Charge" }
+              examples:
+                pending:
+                  $ref: "#/components/examples/chargePending"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { $ref: "#/components/responses/InternalError" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+
+  /charges/{id}/cancel:
+    post:
+      operationId: cancelCharge
+      x-display-name: "Cancel a charge"
+      x-required-scope: charges:write
+      tags: [Charges]
+      summary: Cancel a charge
+      description: |
+        Cancels a `pending` charge so it can no longer be paid. Only a pending charge can be
+        cancelled; any other state returns `409 charge_not_pending`. Emits `charge.cancelled`.
+        Requires an `Idempotency-Key` header.
+      parameters:
+        - $ref: "#/components/parameters/ChargeId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200":
+          headers:
+            Request-Id: { $ref: "#/components/headers/RequestId" }
+            Cache-Control: { $ref: "#/components/headers/CacheControl" }
+            X-RateLimit-Limit: { $ref: "#/components/headers/XRateLimitLimit" }
+            X-RateLimit-Remaining: { $ref: "#/components/headers/XRateLimitRemaining" }
+            Idempotent-Replayed: { $ref: "#/components/headers/IdempotentReplayed" }
+            Idempotency-Status-Version: { $ref: "#/components/headers/IdempotencyStatusVersion" }
+            Idempotency-Key-State: { $ref: "#/components/headers/IdempotencyKeyState" }
+            Idempotent-Original-At: { $ref: "#/components/headers/IdempotentOriginalAt" }
+            Idempotency-Reference: { $ref: "#/components/headers/IdempotencyReference" }
+          description: The cancelled charge.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Charge" }
+              examples:
+                cancelled:
+                  $ref: "#/components/examples/chargeCancelled"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { $ref: "#/components/responses/InternalError" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+
+  /charges/{id}/simulate_payment:
+    post:
+      operationId: simulateChargePayment
+      x-display-name: "Simulate payment (test mode)"
+      x-required-scope: charges:write
+      tags: [Charges]
+      summary: Simulate payment (test mode)
+      description: |
+        **Test mode only.** Marks a `pending` charge as `paid`, exactly as a real customer payment
+        would, and emits `charge.paid`. Use it to exercise your webhook and fulfilment flow without
+        moving crypto. Any non-pending charge returns `409 charge_not_pending`. Requires an
+        `Idempotency-Key` header. (The same effect is available to a human tester via the
+        "Simulate payment" button on the hosted pay page.)
+      parameters:
+        - $ref: "#/components/parameters/ChargeId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200":
+          headers:
+            Request-Id: { $ref: "#/components/headers/RequestId" }
+            Cache-Control: { $ref: "#/components/headers/CacheControl" }
+            X-RateLimit-Limit: { $ref: "#/components/headers/XRateLimitLimit" }
+            X-RateLimit-Remaining: { $ref: "#/components/headers/XRateLimitRemaining" }
+            Idempotent-Replayed: { $ref: "#/components/headers/IdempotentReplayed" }
+            Idempotency-Status-Version: { $ref: "#/components/headers/IdempotencyStatusVersion" }
+            Idempotency-Key-State: { $ref: "#/components/headers/IdempotencyKeyState" }
+            Idempotent-Original-At: { $ref: "#/components/headers/IdempotentOriginalAt" }
+            Idempotency-Reference: { $ref: "#/components/headers/IdempotencyReference" }
+          description: The now-paid charge.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Charge" }
+              examples:
+                paid:
+                  $ref: "#/components/examples/chargePaid"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { $ref: "#/components/responses/InternalError" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+
+  /payment_links:
+    post:
+      operationId: createPaymentLink
+      x-display-name: "Create a payment link"
+      x-required-scope: payment_links:write
+      tags: [Payment links]
+      summary: Create a payment link
+      description: |
+        Creates a reusable link. Each visitor who opens the link's `url` gets a fresh charge and is
+        redirected to its hosted pay page, so one link can be shared on social media or printed as a
+        QR code and paid many times. Optionally cap it with `max_uses`.
+
+        A link has no `reference` or `customer` (those belong on individual charges) — sending
+        either returns `400 invalid_parameter`. Requires an `Idempotency-Key` header.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreatePaymentLinkRequest" }
+            example:
+              amount: 10
+              currency: USD
+              description: Monthly membership
+              pay_asset: USDT
+              pay_network: trc20
+              max_uses: 100
+              metadata: { plan: pro }
+      responses:
+        "201":
+          headers:
+            Request-Id: { $ref: "#/components/headers/RequestId" }
+            Cache-Control: { $ref: "#/components/headers/CacheControl" }
+            X-RateLimit-Limit: { $ref: "#/components/headers/XRateLimitLimit" }
+            X-RateLimit-Remaining: { $ref: "#/components/headers/XRateLimitRemaining" }
+            Idempotent-Replayed: { $ref: "#/components/headers/IdempotentReplayed" }
+            Idempotency-Status-Version: { $ref: "#/components/headers/IdempotencyStatusVersion" }
+            Idempotency-Key-State: { $ref: "#/components/headers/IdempotencyKeyState" }
+            Idempotent-Original-At: { $ref: "#/components/headers/IdempotentOriginalAt" }
+            Idempotency-Reference: { $ref: "#/components/headers/IdempotencyReference" }
+          description: The payment link was created.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PaymentLink" }
+              examples:
+                link:
+                  $ref: "#/components/examples/paymentLink"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { $ref: "#/components/responses/InternalError" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+    get:
+      operationId: listPaymentLinks
+      x-display-name: "List payment links"
+      x-required-scope: payment_links:read
+      tags: [Payment links]
+      summary: List payment links
+      description: Returns your payment links, newest first. Filter by `active` or a `created_from`/`created_before` window.
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/CreatedFrom"
+        - $ref: "#/components/parameters/CreatedBefore"
+        - name: starting_after
+          in: query
+          required: false
+          description: A cursor — the id of the last payment link on the previous page. Returns the next page (older) items.
+          schema: { type: string, example: pl_test_1a2b3c4d5e6f70819a0b1c2d }
+        - name: active
+          in: query
+          required: false
+          description: "`true` for active links only, `false` for deactivated only."
+          schema: { type: boolean, example: true }
+      responses:
+        "200":
+          headers:
+            Request-Id: { $ref: "#/components/headers/RequestId" }
+            Cache-Control: { $ref: "#/components/headers/CacheControl" }
+            X-RateLimit-Limit: { $ref: "#/components/headers/XRateLimitLimit" }
+            X-RateLimit-Remaining: { $ref: "#/components/headers/XRateLimitRemaining" }
+          description: A page of payment links.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PaymentLinkList" }
+              examples:
+                page:
+                  $ref: "#/components/examples/paymentLinkList"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { $ref: "#/components/responses/InternalError" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+
+  /payment_links/{id}:
+    get:
+      operationId: getPaymentLink
+      x-display-name: "Retrieve a payment link"
+      x-required-scope: payment_links:read
+      tags: [Payment links]
+      summary: Retrieve a payment link
+      description: |
+        Returns one payment link for this key, including its current `active` state and `uses`.
+        Deactivated links are still returned — this tells you why a customer's old URL stopped working.
+      parameters:
+        - $ref: "#/components/parameters/PaymentLinkId"
+      responses:
+        "200":
+          headers:
+            Request-Id: { $ref: "#/components/headers/RequestId" }
+            Cache-Control: { $ref: "#/components/headers/CacheControl" }
+            X-RateLimit-Limit: { $ref: "#/components/headers/XRateLimitLimit" }
+            X-RateLimit-Remaining: { $ref: "#/components/headers/XRateLimitRemaining" }
+          description: The payment link.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PaymentLink" }
+              examples:
+                link:
+                  $ref: "#/components/examples/paymentLink"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { $ref: "#/components/responses/InternalError" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+
+  /payment_links/{id}/deactivate:
+    post:
+      operationId: deactivatePaymentLink
+      x-display-name: "Deactivate a payment link"
+      x-required-scope: payment_links:write
+      tags: [Payment links]
+      summary: Deactivate a payment link
+      description: |
+        Stops the link from creating new charges. Charges already created from it are unaffected.
+        Requires an `Idempotency-Key` header.
+      parameters:
+        - $ref: "#/components/parameters/PaymentLinkId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200":
+          headers:
+            Request-Id: { $ref: "#/components/headers/RequestId" }
+            Cache-Control: { $ref: "#/components/headers/CacheControl" }
+            X-RateLimit-Limit: { $ref: "#/components/headers/XRateLimitLimit" }
+            X-RateLimit-Remaining: { $ref: "#/components/headers/XRateLimitRemaining" }
+            Idempotent-Replayed: { $ref: "#/components/headers/IdempotentReplayed" }
+            Idempotency-Status-Version: { $ref: "#/components/headers/IdempotencyStatusVersion" }
+            Idempotency-Key-State: { $ref: "#/components/headers/IdempotencyKeyState" }
+            Idempotent-Original-At: { $ref: "#/components/headers/IdempotentOriginalAt" }
+            Idempotency-Reference: { $ref: "#/components/headers/IdempotencyReference" }
+          description: The deactivated payment link (`active` is now `false`).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PaymentLink" }
+              examples:
+                deactivated:
+                  $ref: "#/components/examples/paymentLinkInactive"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { $ref: "#/components/responses/InternalError" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+
+  /subaccounts:
+    post:
+      operationId: createSubAccount
+      x-display-name: "Create a sub-account"
+      x-required-scope: subaccounts:write
+      tags: [Sub-accounts]
+      summary: Create a sub-account
+      description: |
+        Provisions one of **your own end-users** under your business — the tenant layer. The
+        sub-account is a sandbox identity: it has no wallet, no balance, and cannot receive real
+        money (the response always says so in `sandbox`). Live provisioning opens only with the
+        live rails, and this endpoint stays test-mode until then.
+
+        `name` is required. `reference` is yours (an id from your system) and must be unique within
+        your business; if you omit it, the sub-account id is used. Requires an `Idempotency-Key`
+        header.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateSubAccountRequest" }
+            example:
+              name: Ada's Store
+              email: ada@example.com
+              reference: tenant_1042
+              metadata: { plan: starter }
+      responses:
+        "201":
+          headers:
+            Request-Id: { $ref: "#/components/headers/RequestId" }
+            Cache-Control: { $ref: "#/components/headers/CacheControl" }
+            X-RateLimit-Limit: { $ref: "#/components/headers/XRateLimitLimit" }
+            X-RateLimit-Remaining: { $ref: "#/components/headers/XRateLimitRemaining" }
+            Idempotent-Replayed: { $ref: "#/components/headers/IdempotentReplayed" }
+            Idempotency-Status-Version: { $ref: "#/components/headers/IdempotencyStatusVersion" }
+            Idempotency-Key-State: { $ref: "#/components/headers/IdempotencyKeyState" }
+            Idempotent-Original-At: { $ref: "#/components/headers/IdempotentOriginalAt" }
+            Idempotency-Reference: { $ref: "#/components/headers/IdempotencyReference" }
+          description: The sub-account was created.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SubAccount" }
+              examples:
+                subaccount:
+                  $ref: "#/components/examples/subAccount"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { $ref: "#/components/responses/InternalError" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+    get:
+      operationId: listSubAccounts
+      x-display-name: "List sub-accounts"
+      x-required-scope: subaccounts:read
+      tags: [Sub-accounts]
+      summary: List sub-accounts
+      description: Returns your sub-accounts, newest first. Filter by `status`, `reference` or a `created_from` / `created_before` window.
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - name: starting_after
+          in: query
+          required: false
+          description: A cursor — the id of the last sub-account on the previous page. Returns the next page (older) items.
+          schema: { type: string, example: sa_test_2a3b4c5d6e7f80910a1b2c3d }
+        - $ref: "#/components/parameters/CreatedFrom"
+        - $ref: "#/components/parameters/CreatedBefore"
+        - name: status
+          in: query
+          required: false
+          description: Only sub-accounts in this state.
+          schema: { type: string, enum: [active, suspended], example: active }
+        - name: reference
+          in: query
+          required: false
+          description: Only the sub-account with this exact `reference`.
+          schema: { type: string, example: acme-lagos }
+      responses:
+        "200":
+          headers:
+            Request-Id: { $ref: "#/components/headers/RequestId" }
+            Cache-Control: { $ref: "#/components/headers/CacheControl" }
+            X-RateLimit-Limit: { $ref: "#/components/headers/XRateLimitLimit" }
+            X-RateLimit-Remaining: { $ref: "#/components/headers/XRateLimitRemaining" }
+          description: A page of sub-accounts.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SubAccountList" }
+              examples:
+                page:
+                  $ref: "#/components/examples/subAccountList"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { $ref: "#/components/responses/InternalError" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+
+  /subaccounts/{id}:
+    get:
+      operationId: getSubAccount
+      x-display-name: "Retrieve a sub-account"
+      x-required-scope: subaccounts:read
+      tags: [Sub-accounts]
+      summary: Retrieve a sub-account
+      description: |
+        Returns one sub-account for this key, whatever its status (`active` or `suspended`). Use it to
+        confirm a suspend or activate took effect; both moves are idempotent, so a retry returns the
+        same object.
+      parameters:
+        - $ref: "#/components/parameters/SubAccountId"
+      responses:
+        "200":
+          headers:
+            Request-Id: { $ref: "#/components/headers/RequestId" }
+            Cache-Control: { $ref: "#/components/headers/CacheControl" }
+            X-RateLimit-Limit: { $ref: "#/components/headers/XRateLimitLimit" }
+            X-RateLimit-Remaining: { $ref: "#/components/headers/XRateLimitRemaining" }
+          description: The sub-account.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SubAccount" }
+              examples:
+                subaccount:
+                  $ref: "#/components/examples/subAccount"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { $ref: "#/components/responses/InternalError" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+
+  /subaccounts/{id}/suspend:
+    post:
+      operationId: suspendSubAccount
+      x-display-name: "Suspend a sub-account"
+      x-required-scope: subaccounts:write
+      tags: [Sub-accounts]
+      summary: Suspend a sub-account
+      description: |
+        Your own control over your tenant: marks it `suspended`. Idempotent — suspending an
+        already-suspended sub-account returns it unchanged. Requires an `Idempotency-Key` header.
+      parameters:
+        - $ref: "#/components/parameters/SubAccountId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200":
+          headers:
+            Request-Id: { $ref: "#/components/headers/RequestId" }
+            Cache-Control: { $ref: "#/components/headers/CacheControl" }
+            X-RateLimit-Limit: { $ref: "#/components/headers/XRateLimitLimit" }
+            X-RateLimit-Remaining: { $ref: "#/components/headers/XRateLimitRemaining" }
+            Idempotent-Replayed: { $ref: "#/components/headers/IdempotentReplayed" }
+            Idempotency-Status-Version: { $ref: "#/components/headers/IdempotencyStatusVersion" }
+            Idempotency-Key-State: { $ref: "#/components/headers/IdempotencyKeyState" }
+            Idempotent-Original-At: { $ref: "#/components/headers/IdempotentOriginalAt" }
+            Idempotency-Reference: { $ref: "#/components/headers/IdempotencyReference" }
+          description: The suspended sub-account (`status` is `suspended`).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SubAccount" }
+              examples:
+                suspended:
+                  $ref: "#/components/examples/subAccountSuspended"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { $ref: "#/components/responses/InternalError" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+
+  /subaccounts/{id}/activate:
+    post:
+      operationId: activateSubAccount
+      x-display-name: "Activate a sub-account"
+      x-required-scope: subaccounts:write
+      tags: [Sub-accounts]
+      summary: Activate a sub-account
+      description: |
+        Reverses a suspension: marks the sub-account `active`. Idempotent — activating an
+        already-active sub-account returns it unchanged. Requires an `Idempotency-Key` header.
+      parameters:
+        - $ref: "#/components/parameters/SubAccountId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200":
+          headers:
+            Request-Id: { $ref: "#/components/headers/RequestId" }
+            Cache-Control: { $ref: "#/components/headers/CacheControl" }
+            X-RateLimit-Limit: { $ref: "#/components/headers/XRateLimitLimit" }
+            X-RateLimit-Remaining: { $ref: "#/components/headers/XRateLimitRemaining" }
+            Idempotent-Replayed: { $ref: "#/components/headers/IdempotentReplayed" }
+            Idempotency-Status-Version: { $ref: "#/components/headers/IdempotencyStatusVersion" }
+            Idempotency-Key-State: { $ref: "#/components/headers/IdempotencyKeyState" }
+            Idempotent-Original-At: { $ref: "#/components/headers/IdempotentOriginalAt" }
+            Idempotency-Reference: { $ref: "#/components/headers/IdempotencyReference" }
+          description: The active sub-account (`status` is `active`).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SubAccount" }
+              examples:
+                active:
+                  $ref: "#/components/examples/subAccount"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { $ref: "#/components/responses/InternalError" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+
+  /assistant:
+    post:
+      operationId: askAssistant
+      x-display-name: "Ask the developer assistant"
+      x-required-scope: assistant:ask
+      tags: [Assistant]
+      summary: Ask the developer assistant
+      description: |
+        Answers a developer question strictly from the published FirstFlip documentation (it never
+        invents facts; unsupported claims are scrubbed, and `removed_claims` counts how many). This
+        is **not** a money call and takes **no** `Idempotency-Key`. Rate limited to 30 questions per
+        key per hour. The assistant is gated by a separate switch and is OFF by default; when off it
+        returns `503 assistant_disabled`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [question]
+              properties:
+                question:
+                  type: string
+                  maxLength: 2000
+                  description: Your question, 1–2000 characters.
+              additionalProperties: false
+            example:
+              question: How do I verify a webhook signature?
+      responses:
+        "200":
+          headers:
+            Request-Id: { $ref: "#/components/headers/RequestId" }
+            Cache-Control: { $ref: "#/components/headers/CacheControl" }
+            X-RateLimit-Limit: { $ref: "#/components/headers/XRateLimitLimit" }
+            X-RateLimit-Remaining: { $ref: "#/components/headers/XRateLimitRemaining" }
+          description: The assistant's answer.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AssistantAnswer" }
+              example:
+                object: assistant_answer
+                answer: Verify the FirstFlip-Signature header by recomputing HMAC-SHA256 over "<t>.<raw body>" with your signing secret, within a 5-minute tolerance.
+                removed_claims: 0
+        "400":
+          headers:
+            Request-Id: { $ref: "#/components/headers/RequestId" }
+            Cache-Control: { $ref: "#/components/headers/CacheControl" }
+            X-RateLimit-Limit: { $ref: "#/components/headers/XRateLimitLimit" }
+            X-RateLimit-Remaining: { $ref: "#/components/headers/XRateLimitRemaining" }
+          description: The question is missing or too long (`param` is `question`).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+              example:
+                error: { type: invalid_request_error, code: question_required, message: Ask a question., param: question }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { $ref: "#/components/responses/InternalError" }
+        "503":
+          headers:
+            Request-Id: { $ref: "#/components/headers/RequestId" }
+            Cache-Control: { $ref: "#/components/headers/CacheControl" }
+            Retry-After: { $ref: "#/components/headers/RetryAfter" }
+          description: |
+            The assistant cannot answer right now. Read `code`: `assistant_disabled` means the feature
+            is switched off and retrying will not help until the operator enables it;
+            `assistant_unavailable` is transient — retry after `Retry-After` seconds.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+              examples:
+                assistant_disabled:
+                  value: { error: { type: api_error, code: assistant_disabled, message: The assistant is switched off., param: null } }
+                assistant_unavailable:
+                  value: { error: { type: api_error, code: assistant_unavailable, message: The assistant is unavailable right now. Try again shortly., param: null } }
+
+  /sandbox/pay/{token}:
+    get:
+      operationId: showHostedPayPage
+      x-display-name: "Hosted pay page for a charge (test mode)"
+      tags: [Hosted pages]
+      summary: Hosted pay page for a charge (test mode)
+      description: |
+        The browser-facing page a customer opens (this is a charge's `hosted_url`). Shows the quote
+        and, while the charge is pending, a "Simulate payment" button. The `token` is the
+        capability; no secret key is used. Returns HTML.
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/HostedToken"
+      responses:
+        "200":
+          headers:
+            Request-Id: { $ref: "#/components/headers/RequestId" }
+            Cache-Control: { $ref: "#/components/headers/CacheControl" }
+            X-RateLimit-Limit: { $ref: "#/components/headers/XRateLimitLimit" }
+            X-RateLimit-Remaining: { $ref: "#/components/headers/XRateLimitRemaining" }
+          description: The hosted pay page.
+          content:
+            text/html:
+              schema: { type: string }
+              example: |
+                <!doctype html><html lang="en"><head><meta charset="utf-8"><title>FirstFlip sandbox payment</title></head>
+                <body><main><div class="card"><span class="badge">TEST MODE</span><h1>Order #1048</h1>
+                <div class="row"><span class="mute">Amount</span><span>25,000 NGN</span></div>
+                <div class="row"><span class="mute">Pay</span><span>16.20 USDT (TRC20)</span></div>
+                <div class="row"><span class="mute">To address</span><span>TEST-USDT-TRC20-ADDRESS</span></div>
+                <div class="row"><span class="mute">Reference</span><span>order_1048</span></div>
+                <div class="row"><span class="mute">Status</span><span>pending</span></div>
+                <form method="post" action="/v1/sandbox/pay/test_pay_token"><button type="submit">Simulate payment</button></form>
+                </div><p class="mute" style="text-align:center">FirstFlip sandbox · no real money moves here</p></main></body></html>
+        "404":
+          headers:
+            Request-Id: { $ref: "#/components/headers/RequestId" }
+            Cache-Control: { $ref: "#/components/headers/CacheControl" }
+            X-RateLimit-Limit: { $ref: "#/components/headers/XRateLimitLimit" }
+            X-RateLimit-Remaining: { $ref: "#/components/headers/XRateLimitRemaining" }
+          description: No charge matches the token.
+          content:
+            text/html:
+              schema: { type: string }
+        "429":
+          headers:
+            Request-Id: { $ref: "#/components/headers/RequestId" }
+            Cache-Control: { $ref: "#/components/headers/CacheControl" }
+            X-RateLimit-Limit: { $ref: "#/components/headers/XRateLimitLimit" }
+            X-RateLimit-Remaining: { $ref: "#/components/headers/XRateLimitRemaining" }
+            Retry-After: { $ref: "#/components/headers/RetryAfter" }
+          description: Too many hosted-page requests from this IP. Honor `Retry-After`.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "503":
+          headers:
+            Request-Id: { $ref: "#/components/headers/RequestId" }
+            Cache-Control: { $ref: "#/components/headers/CacheControl" }
+            Retry-After: { $ref: "#/components/headers/RetryAfter" }
+          description: FirstFlip is briefly unavailable. Retry shortly.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+    post:
+      operationId: simulateHostedPayPage
+      x-display-name: "Simulate payment from the hosted page (test mode)"
+      tags: [Hosted pages]
+      summary: Simulate payment from the hosted page (test mode)
+      description: |
+        Posted by the hosted page's form. Marks the charge `paid` and fires `charge.paid`, exactly
+        like a real payment. Returns HTML (a confirmation). No secret key is used.
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/HostedToken"
+      requestBody:
+        required: false
+        content:
+          application/x-www-form-urlencoded:
+            schema: { type: object }
+      responses:
+        "200":
+          headers:
+            Request-Id: { $ref: "#/components/headers/RequestId" }
+            Cache-Control: { $ref: "#/components/headers/CacheControl" }
+            X-RateLimit-Limit: { $ref: "#/components/headers/XRateLimitLimit" }
+            X-RateLimit-Remaining: { $ref: "#/components/headers/XRateLimitRemaining" }
+          description: The result page (payment simulated, or nothing to do).
+          content:
+            text/html:
+              schema: { type: string }
+              example: |
+                <!doctype html><html lang="en"><head><meta charset="utf-8"><title>FirstFlip sandbox payment</title></head>
+                <body><main><div class="card"><span class="badge">TEST MODE</span><h1>Order #1048</h1>
+                <div class="row"><span class="mute">Amount</span><span>25,000 NGN</span></div>
+                <div class="row"><span class="mute">Pay</span><span>16.20 USDT (TRC20)</span></div>
+                <div class="row"><span class="mute">Status</span><span>paid</span></div>
+                <p style="margin-top:16px">Payment simulated. Your webhook endpoint has been sent <b>charge.paid</b>.</p>
+                </div><p class="mute" style="text-align:center">FirstFlip sandbox · no real money moves here</p></main></body></html>
+        "404":
+          headers:
+            Request-Id: { $ref: "#/components/headers/RequestId" }
+            Cache-Control: { $ref: "#/components/headers/CacheControl" }
+            X-RateLimit-Limit: { $ref: "#/components/headers/XRateLimitLimit" }
+            X-RateLimit-Remaining: { $ref: "#/components/headers/XRateLimitRemaining" }
+          description: No charge matches the token.
+          content:
+            text/html:
+              schema: { type: string }
+        "429":
+          headers:
+            Request-Id: { $ref: "#/components/headers/RequestId" }
+            Cache-Control: { $ref: "#/components/headers/CacheControl" }
+            X-RateLimit-Limit: { $ref: "#/components/headers/XRateLimitLimit" }
+            X-RateLimit-Remaining: { $ref: "#/components/headers/XRateLimitRemaining" }
+            Retry-After: { $ref: "#/components/headers/RetryAfter" }
+          description: Too many hosted-page requests from this IP. Honor `Retry-After`.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "503":
+          headers:
+            Request-Id: { $ref: "#/components/headers/RequestId" }
+            Cache-Control: { $ref: "#/components/headers/CacheControl" }
+            Retry-After: { $ref: "#/components/headers/RetryAfter" }
+          description: FirstFlip is briefly unavailable. Retry shortly.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /sandbox/l/{token}:
+    get:
+      operationId: showHostedLinkPage
+      x-display-name: "Hosted landing page for a payment link (test mode)"
+      tags: [Hosted pages]
+      summary: Hosted landing page for a payment link (test mode)
+      description: |
+        The browser-facing landing page for a payment link (this is a link's `url`). Shows the price
+        and a "Continue to payment" button. A GET creates nothing (so link-preview crawlers cannot
+        mint charges). The `token` is the capability; no secret key is used. Returns HTML.
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/HostedToken"
+      responses:
+        "200":
+          headers:
+            Request-Id: { $ref: "#/components/headers/RequestId" }
+            Cache-Control: { $ref: "#/components/headers/CacheControl" }
+            X-RateLimit-Limit: { $ref: "#/components/headers/XRateLimitLimit" }
+            X-RateLimit-Remaining: { $ref: "#/components/headers/XRateLimitRemaining" }
+          description: The link landing page.
+          content:
+            text/html:
+              schema: { type: string }
+              example: |
+                <!doctype html><html lang="en"><head><meta charset="utf-8"><title>FirstFlip sandbox payment link</title></head>
+                <body><main><div class="card"><span class="badge">TEST MODE</span><h1>Order #1048</h1>
+                <div class="row"><span class="mute">Amount</span><span>25,000 NGN</span></div>
+                <div class="row"><span class="mute">Pay with</span><span>USDT (TRC20)</span></div>
+                <form method="post" action="/v1/sandbox/l/test_link_token"><button type="submit">Continue to payment</button></form>
+                </div><p class="mute" style="text-align:center">FirstFlip sandbox · no real money moves here</p></main></body></html>
+        "404":
+          headers:
+            Request-Id: { $ref: "#/components/headers/RequestId" }
+            Cache-Control: { $ref: "#/components/headers/CacheControl" }
+            X-RateLimit-Limit: { $ref: "#/components/headers/XRateLimitLimit" }
+            X-RateLimit-Remaining: { $ref: "#/components/headers/XRateLimitRemaining" }
+          description: No payment link matches the token.
+          content:
+            text/html:
+              schema: { type: string }
+        "429":
+          headers:
+            Request-Id: { $ref: "#/components/headers/RequestId" }
+            Cache-Control: { $ref: "#/components/headers/CacheControl" }
+            X-RateLimit-Limit: { $ref: "#/components/headers/XRateLimitLimit" }
+            X-RateLimit-Remaining: { $ref: "#/components/headers/XRateLimitRemaining" }
+            Retry-After: { $ref: "#/components/headers/RetryAfter" }
+          description: Too many hosted-page requests from this IP. Honor `Retry-After`.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+              example: { error: { type: rate_limit_error, code: rate_limited, message: Too many requests; honor Retry-After., param: null } }
+    post:
+      operationId: openHostedLinkPage
+      x-display-name: "Open a payment link — create a charge and redirect (test mode)"
+      tags: [Hosted pages]
+      summary: Open a payment link — create a charge and redirect (test mode)
+      description: |
+        Posted by the landing page's form. Atomically reserves a use (honoring `max_uses`), creates
+        a fresh charge for this visitor, and 303-redirects to that charge's hosted pay page. No
+        secret key is used.
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/HostedToken"
+      requestBody:
+        required: false
+        content:
+          application/x-www-form-urlencoded:
+            schema: { type: object }
+      responses:
+        "303":
+          headers:
+            Request-Id: { $ref: "#/components/headers/RequestId" }
+            Cache-Control: { $ref: "#/components/headers/CacheControl" }
+            X-RateLimit-Limit: { $ref: "#/components/headers/XRateLimitLimit" }
+            X-RateLimit-Remaining: { $ref: "#/components/headers/XRateLimitRemaining" }
+            Location: { $ref: "#/components/headers/Location" }
+          description: Redirect to the created charge's hosted pay page.
+        "404":
+          headers:
+            Request-Id: { $ref: "#/components/headers/RequestId" }
+            Cache-Control: { $ref: "#/components/headers/CacheControl" }
+            X-RateLimit-Limit: { $ref: "#/components/headers/XRateLimitLimit" }
+            X-RateLimit-Remaining: { $ref: "#/components/headers/XRateLimitRemaining" }
+          description: No payment link matches the token.
+          content:
+            text/html:
+              schema: { type: string }
+              example: |
+                <!doctype html><html lang="en"><head><meta charset="utf-8"><title>Not found</title></head>
+                <body><main><div class="card"><h1>Payment link not found</h1></div>
+                <p class="mute" style="text-align:center">FirstFlip sandbox · no real money moves here</p></main></body></html>
+        "410":
+          headers:
+            Request-Id: { $ref: "#/components/headers/RequestId" }
+            Cache-Control: { $ref: "#/components/headers/CacheControl" }
+            X-RateLimit-Limit: { $ref: "#/components/headers/XRateLimitLimit" }
+            X-RateLimit-Remaining: { $ref: "#/components/headers/XRateLimitRemaining" }
+          description: The link is inactive or has reached `max_uses`.
+          content:
+            text/html:
+              schema: { type: string }
+              example: |
+                <!doctype html><html lang="en"><head><meta charset="utf-8"><title>Unavailable</title></head>
+                <body><main><div class="card"><h1>This payment link is no longer accepting payments</h1></div>
+                <p class="mute" style="text-align:center">FirstFlip sandbox · no real money moves here</p></main></body></html>
+        "429":
+          headers:
+            Request-Id: { $ref: "#/components/headers/RequestId" }
+            Cache-Control: { $ref: "#/components/headers/CacheControl" }
+            X-RateLimit-Limit: { $ref: "#/components/headers/XRateLimitLimit" }
+            X-RateLimit-Remaining: { $ref: "#/components/headers/XRateLimitRemaining" }
+            Retry-After: { $ref: "#/components/headers/RetryAfter" }
+          description: Too many hosted-page requests from this IP. Honor `Retry-After`.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+              example: { error: { type: rate_limit_error, code: rate_limited, message: Too many requests; honor Retry-After., param: null } }
+        "503":
+          headers:
+            Request-Id: { $ref: "#/components/headers/RequestId" }
+            Cache-Control: { $ref: "#/components/headers/CacheControl" }
+            Retry-After: { $ref: "#/components/headers/RetryAfter" }
+          description: Exchange rates are briefly unavailable, or a transient error. Try again.
+          content:
+            text/html:
+              schema: { type: string }
+              example: |
+                <!doctype html><html lang="en"><head><meta charset="utf-8"><title>Try again</title></head>
+                <body><main><div class="card"><h1>Exchange rates are briefly unavailable. Try again in a moment.</h1></div>
+                <p class="mute" style="text-align:center">FirstFlip sandbox · no real money moves here</p></main></body></html>
+
+  /cards:
+    post:
+      operationId: createCard
+      x-display-name: "Create a virtual card"
+      x-required-scope: cards:write
+      tags: [Cards]
+      summary: Create a virtual card
+      description: |
+        Issues one sandbox USD card to one of your customers. The card starts at `balance: 0` with
+        no spend limits, and every later call on this surface moves or gates that balance.
+
+        `customer.first_name`, `customer.last_name` and `customer.email` are required; the customer
+        is validated and then **not stored** — no name or email is persisted on the card, so a
+        leaked card id carries no PII with it. `reference` is yours, unique per business (a repeat
+        returns `409 duplicate_reference`), and defaults to the card id. `currency` may only be
+        `USD`; sending anything else returns 400.
+
+        The three limits are optional at issue time and are set or cleared later on
+        `POST /cards/{id}/spend_limits`. They are per-card ceilings you choose, and no platform maximum
+        is applied to any single axis. FirstFlip's ceilings sit elsewhere: one on how many cards a key
+        may hold open, and one on what all your cards may spend together — both stated below and in
+        the authorization section.
+
+        FirstFlip's one cap on issuing is a count, not an amount: a key may hold **250 open cards**.
+        The 251st `POST /cards` answers `409 card_limit_reached` with `param: cards` and nothing moves;
+        closing a card frees a slot, so a healthy integration is never locked out. Resending the same
+        `Idempotency-Key` is not a new card and is not counted.
+
+        The response shows `number_last4`, `expiry_month` and `expiry_year`. Those are minted here
+        for shape only — this card has no issuer, no full PAN and no CVV, and `sandbox.real_card`
+        says so on every answer. Requires an `Idempotency-Key` header.
+
+        Live mode: a live key is refused here before the body is read — issuing a real card needs the
+        cardholder rail FirstFlip has not built, so this answers `403 live_precondition_unmet` with
+        `param: cardholder`. No card is minted, and the refusal is what your key replays.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateCardRequest" }
+            example:
+              reference: cust-1042
+              customer: { first_name: Amara, last_name: Okafor, email: amara@example.com }
+              daily_limit: 500
+              per_transaction_limit: 200
+      responses:
+        "201":
+          headers:
+            Request-Id: { $ref: "#/components/headers/RequestId" }
+            Cache-Control: { $ref: "#/components/headers/CacheControl" }
+            X-RateLimit-Limit: { $ref: "#/components/headers/XRateLimitLimit" }
+            X-RateLimit-Remaining: { $ref: "#/components/headers/XRateLimitRemaining" }
+            Idempotent-Replayed: { $ref: "#/components/headers/IdempotentReplayed" }
+            Idempotency-Status-Version: { $ref: "#/components/headers/IdempotencyStatusVersion" }
+            Idempotency-Key-State: { $ref: "#/components/headers/IdempotencyKeyState" }
+            Idempotent-Original-At: { $ref: "#/components/headers/IdempotentOriginalAt" }
+            Idempotency-Reference: { $ref: "#/components/headers/IdempotencyReference" }
+          description: The card was issued.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Card" }
+              examples:
+                issued:
+                  $ref: "#/components/examples/cardIssued"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { $ref: "#/components/responses/InternalError" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+    get:
+      operationId: listCards
+      x-display-name: "List virtual cards"
+      x-required-scope: cards:read
+      tags: [Cards]
+      summary: List virtual cards
+      description: |
+        Returns your cards, newest first. Filter by `status` (`active`, `frozen` or `closed`) or a
+        `created_from`/`created_before` window. Closed cards are listed too — that is how you find a
+        customer's old card id.
+
+        Live mode: this read runs live. A live key gets its own live cards and nothing else — a live page
+        never contains a test card, and each row answers `livemode: true` with `sandbox: null`.
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/StartingAfter"
+        - $ref: "#/components/parameters/CreatedFrom"
+        - $ref: "#/components/parameters/CreatedBefore"
+        - name: status
+          in: query
+          required: false
+          description: Only cards in this state.
+          schema: { type: string, enum: [active, frozen, closed], example: active }
+      responses:
+        "200":
+          headers:
+            Request-Id: { $ref: "#/components/headers/RequestId" }
+            Cache-Control: { $ref: "#/components/headers/CacheControl" }
+            X-RateLimit-Limit: { $ref: "#/components/headers/XRateLimitLimit" }
+            X-RateLimit-Remaining: { $ref: "#/components/headers/XRateLimitRemaining" }
+          description: A page of cards.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CardList" }
+              examples:
+                page:
+                  $ref: "#/components/examples/cardList"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { $ref: "#/components/responses/InternalError" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+
+  /cards/{id}:
+    get:
+      operationId: getCard
+      x-display-name: "Retrieve a virtual card"
+      x-required-scope: cards:read
+      tags: [Cards]
+      summary: Retrieve a virtual card
+      description: |
+        Returns one card, including its current `balance`, `status` and `limits`. This is the read
+        your own UI should render from — never from a value cached after a write, because a spend can
+        have landed since.
+
+        Live mode: this read runs live. A live card answers `livemode: true` with `sandbox: null`; a card
+        belonging to the other mode is a `404`, byte-for-byte the answer for a card that does not exist.
+      parameters:
+        - $ref: "#/components/parameters/CardId"
+      responses:
+        "200":
+          headers:
+            Request-Id: { $ref: "#/components/headers/RequestId" }
+            Cache-Control: { $ref: "#/components/headers/CacheControl" }
+            X-RateLimit-Limit: { $ref: "#/components/headers/XRateLimitLimit" }
+            X-RateLimit-Remaining: { $ref: "#/components/headers/XRateLimitRemaining" }
+          description: The card.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Card" }
+              examples:
+                card:
+                  $ref: "#/components/examples/cardIssued"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { $ref: "#/components/responses/InternalError" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+
+  /cards/{id}/fund:
+    post:
+      operationId: fundCard
+      x-display-name: "Fund a virtual card"
+      x-required-scope: cards:write
+      tags: [Cards]
+      summary: Fund a virtual card
+      description: |
+        Puts money on the card from your business's sandbox funding, and returns the ledger row that
+        describes the credit (`type: topup`, `status: completed`, with `balance_before` and
+        `balance_after`). The row and the balance move in one commit, so a funding row can never
+        describe money the card did not receive.
+
+        Funding a **frozen** card is allowed — money arriving is never blocked by a freeze, only money
+        leaving. Funding a **closed** card returns `409 card_closed`. Requires an `Idempotency-Key`
+        header: retry the same key to replay this credit instead of funding twice.
+
+        Live mode: refused — funding needs a tenant USD balance to move money from, and that rail is not
+        built. This answers `403 live_precondition_unmet` with `param: funding` before your amount is read.
+      parameters:
+        - $ref: "#/components/parameters/CardId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CardAmountRequest" }
+            example: { amount: 100 }
+      responses:
+        "201":
+          headers:
+            Request-Id: { $ref: "#/components/headers/RequestId" }
+            Cache-Control: { $ref: "#/components/headers/CacheControl" }
+            X-RateLimit-Limit: { $ref: "#/components/headers/XRateLimitLimit" }
+            X-RateLimit-Remaining: { $ref: "#/components/headers/XRateLimitRemaining" }
+            Idempotent-Replayed: { $ref: "#/components/headers/IdempotentReplayed" }
+            Idempotency-Status-Version: { $ref: "#/components/headers/IdempotencyStatusVersion" }
+            Idempotency-Key-State: { $ref: "#/components/headers/IdempotencyKeyState" }
+            Idempotent-Original-At: { $ref: "#/components/headers/IdempotentOriginalAt" }
+            Idempotency-Reference: { $ref: "#/components/headers/IdempotencyReference" }
+          description: The credit was committed (or replayed from your key).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CardTransaction" }
+              examples:
+                topped_up:
+                  $ref: "#/components/examples/cardTopup"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { $ref: "#/components/responses/InternalError" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+
+  /cards/{id}/withdraw:
+    post:
+      operationId: withdrawCard
+      x-display-name: "Withdraw from a virtual card"
+      x-required-scope: cards:write
+      tags: [Cards]
+      summary: Withdraw from a virtual card
+      description: |
+        Takes money back off the card (`type: withdrawal`, `status: completed`). The same commit rule
+        as funding applies: row and balance move together.
+
+        A withdrawal is refused with `409 card_not_active` unless the card is `active` — a freeze stops
+        money leaving, and a close stops everything (`409 card_closed`). An amount larger than the
+        balance returns `400 insufficient_balance` with `param: amount`, and nothing moves. Requires
+        an `Idempotency-Key` header.
+
+        Live mode: refused — taking real money off a card needs the withdrawal rail, and FirstFlip has not
+        proved that provider verb yet. This answers `403 live_precondition_unmet` with `param: withdrawal`
+        before your amount is read.
+      parameters:
+        - $ref: "#/components/parameters/CardId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CardAmountRequest" }
+            example: { amount: 40 }
+      responses:
+        "201":
+          headers:
+            Request-Id: { $ref: "#/components/headers/RequestId" }
+            Cache-Control: { $ref: "#/components/headers/CacheControl" }
+            X-RateLimit-Limit: { $ref: "#/components/headers/XRateLimitLimit" }
+            X-RateLimit-Remaining: { $ref: "#/components/headers/XRateLimitRemaining" }
+            Idempotent-Replayed: { $ref: "#/components/headers/IdempotentReplayed" }
+            Idempotency-Status-Version: { $ref: "#/components/headers/IdempotencyStatusVersion" }
+            Idempotency-Key-State: { $ref: "#/components/headers/IdempotencyKeyState" }
+            Idempotent-Original-At: { $ref: "#/components/headers/IdempotentOriginalAt" }
+            Idempotency-Reference: { $ref: "#/components/headers/IdempotencyReference" }
+          description: The withdrawal was committed (or replayed from your key).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CardTransaction" }
+              examples:
+                withdrawn:
+                  $ref: "#/components/examples/cardWithdrawal"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { $ref: "#/components/responses/InternalError" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+
+  /cards/{id}/freeze:
+    post:
+      operationId: freezeCard
+      x-display-name: "Freeze a virtual card"
+      x-required-scope: cards:write
+      tags: [Cards]
+      summary: Freeze a virtual card
+      description: |
+        Stops the card from spending or being withdrawn from, and keeps every other property — the
+        balance, the limits, the id — exactly as they are. `reason` (max 200 chars) is stored and
+        returned as `frozen_reason`.
+
+        Freezing is idempotent by outcome: freezing an already-frozen card answers `200` with that
+        state rather than an error, so two racing requests cannot disagree. A closed card answers
+        `409 card_closed`. Requires an `Idempotency-Key` header.
+
+        Live mode: this leg runs live, and it is the leg that matters on the day a card is reported lost.
+      parameters:
+        - $ref: "#/components/parameters/CardId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CardReasonRequest" }
+            example: { reason: Reported lost }
+      responses:
+        "200":
+          headers:
+            Request-Id: { $ref: "#/components/headers/RequestId" }
+            Cache-Control: { $ref: "#/components/headers/CacheControl" }
+            X-RateLimit-Limit: { $ref: "#/components/headers/XRateLimitLimit" }
+            X-RateLimit-Remaining: { $ref: "#/components/headers/XRateLimitRemaining" }
+            Idempotent-Replayed: { $ref: "#/components/headers/IdempotentReplayed" }
+            Idempotency-Status-Version: { $ref: "#/components/headers/IdempotencyStatusVersion" }
+            Idempotency-Key-State: { $ref: "#/components/headers/IdempotencyKeyState" }
+            Idempotent-Original-At: { $ref: "#/components/headers/IdempotentOriginalAt" }
+            Idempotency-Reference: { $ref: "#/components/headers/IdempotencyReference" }
+          description: The card is frozen.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Card" }
+              examples:
+                frozen:
+                  $ref: "#/components/examples/cardFrozen"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { $ref: "#/components/responses/InternalError" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+
+  /cards/{id}/unfreeze:
+    post:
+      operationId: unfreezeCard
+      x-display-name: "Unfreeze a virtual card"
+      x-required-scope: cards:write
+      tags: [Cards]
+      summary: Unfreeze a virtual card
+      description: |
+        Returns a frozen card to `active` and clears `frozen_reason`. A frozen card keeps its balance,
+        so unfreezing restores spending without funding it again.
+
+        A closed card cannot be reopened — `409 card_closed` says to issue a new one. Unfreezing a card
+        that is already active answers `200` with its current state. Requires an `Idempotency-Key`
+        header. No request body is read.
+
+        Live mode: this leg runs live with the same ordering as freeze — the issuer releases the card first,
+        and our record follows only if it agrees. A refusing issuer answers `503 service_unavailable` and the
+        card stays `frozen`.
+      parameters:
+        - $ref: "#/components/parameters/CardId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200":
+          headers:
+            Request-Id: { $ref: "#/components/headers/RequestId" }
+            Cache-Control: { $ref: "#/components/headers/CacheControl" }
+            X-RateLimit-Limit: { $ref: "#/components/headers/XRateLimitLimit" }
+            X-RateLimit-Remaining: { $ref: "#/components/headers/XRateLimitRemaining" }
+            Idempotent-Replayed: { $ref: "#/components/headers/IdempotentReplayed" }
+            Idempotency-Status-Version: { $ref: "#/components/headers/IdempotencyStatusVersion" }
+            Idempotency-Key-State: { $ref: "#/components/headers/IdempotencyKeyState" }
+            Idempotent-Original-At: { $ref: "#/components/headers/IdempotentOriginalAt" }
+            Idempotency-Reference: { $ref: "#/components/headers/IdempotencyReference" }
+          description: The card is active again.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Card" }
+              examples:
+                active:
+                  $ref: "#/components/examples/cardIssued"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { $ref: "#/components/responses/InternalError" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+
+  /cards/{id}/close:
+    post:
+      operationId: closeCard
+      x-display-name: "Close a virtual card"
+      x-required-scope: cards:write
+      tags: [Cards]
+      summary: Close a virtual card
+      description: |
+        Ends the card for good, from either `active` or `frozen`. `reason` (max 200 chars) is stored
+        and returned as `closed_reason`.
+
+        Close is terminal: every later write against the card answers `409 card_closed`, and the card
+        cannot be reopened — issue a new one. Closing an already-closed card answers `200`. Any
+        balance still on the card is left as recorded against it and is not paid out by this call;
+        withdraw it first if the money must come back. Requires an `Idempotency-Key` header.
+
+        Live mode: refused — closing a real card has to settle whatever is outstanding against it, and the
+        settlement rail is not built. This answers `403 live_precondition_unmet` with `param: settlement`
+        and changes nothing, on either side.
+      parameters:
+        - $ref: "#/components/parameters/CardId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CardReasonRequest" }
+            example: { reason: Customer left the platform }
+      responses:
+        "200":
+          headers:
+            Request-Id: { $ref: "#/components/headers/RequestId" }
+            Cache-Control: { $ref: "#/components/headers/CacheControl" }
+            X-RateLimit-Limit: { $ref: "#/components/headers/XRateLimitLimit" }
+            X-RateLimit-Remaining: { $ref: "#/components/headers/XRateLimitRemaining" }
+            Idempotent-Replayed: { $ref: "#/components/headers/IdempotentReplayed" }
+            Idempotency-Status-Version: { $ref: "#/components/headers/IdempotencyStatusVersion" }
+            Idempotency-Key-State: { $ref: "#/components/headers/IdempotencyKeyState" }
+            Idempotent-Original-At: { $ref: "#/components/headers/IdempotentOriginalAt" }
+            Idempotency-Reference: { $ref: "#/components/headers/IdempotencyReference" }
+          description: The card is closed.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Card" }
+              examples:
+                closed:
+                  $ref: "#/components/examples/cardClosed"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { $ref: "#/components/responses/InternalError" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+
+  /cards/{id}/spend_limits:
+    post:
+      operationId: updateCardSpendLimits
+      x-display-name: "Update a card's spend limits"
+      x-required-scope: cards:write
+      tags: [Cards]
+      summary: Update a card's spend limits
+      description: |
+        Sets the merchant-side ceilings an authorization is judged against. Send at least one of
+        `daily_limit`, `per_transaction_limit` or `monthly_limit`; the axes you leave out are left
+        alone, and an explicit `null` clears that axis (no ceiling).
+
+        `daily_limit` and `monthly_limit` are rolling windows — 24 hours and 30 days from now, not a
+        calendar day or month — and they are summed from the **committed** approvals at the moment the
+        spend lands, not from a read taken earlier. That is what makes the ceiling hold when thirty
+        authorizations arrive at once. `per_transaction_limit` is a single-authorization maximum and is
+        checked before either window. Requires an `Idempotency-Key` header.
+
+        Live mode: refused — the issuer has rejected every amount format this platform has tried on that
+        call, and a ceiling sent in the wrong unit is worse than none. Writing it only on our side would be
+        a limit a live card does not actually obey, so this answers `403 live_precondition_unmet` with
+        `param: limit_format`.
+      parameters:
+        - $ref: "#/components/parameters/CardId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CardLimitsRequest" }
+            example: { daily_limit: 100, monthly_limit: null }
+      responses:
+        "200":
+          headers:
+            Request-Id: { $ref: "#/components/headers/RequestId" }
+            Cache-Control: { $ref: "#/components/headers/CacheControl" }
+            X-RateLimit-Limit: { $ref: "#/components/headers/XRateLimitLimit" }
+            X-RateLimit-Remaining: { $ref: "#/components/headers/XRateLimitRemaining" }
+            Idempotent-Replayed: { $ref: "#/components/headers/IdempotentReplayed" }
+            Idempotency-Status-Version: { $ref: "#/components/headers/IdempotencyStatusVersion" }
+            Idempotency-Key-State: { $ref: "#/components/headers/IdempotencyKeyState" }
+            Idempotent-Original-At: { $ref: "#/components/headers/IdempotentOriginalAt" }
+            Idempotency-Reference: { $ref: "#/components/headers/IdempotencyReference" }
+          description: The card with its new `limits`.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Card" }
+              examples:
+                limited:
+                  $ref: "#/components/examples/cardLimited"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { $ref: "#/components/responses/InternalError" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+
+  /cards/{id}/simulate_authorization:
+    post:
+      operationId: simulateCardAuthorization
+      x-display-name: "Simulate a card authorization"
+      x-required-scope: cards:write
+      tags: [Cards]
+      summary: Simulate a card authorization
+      description: |
+        The stand-in for a live purchase, and the only way to see an approval or a decline on this
+        surface. An **approved** authorization is the debit: the ledger row (`type: authorization`,
+        `status: approved`) and the balance drop commit together. A **declined** one writes the row
+        with `status: declined` and a `decline_code`, and moves no money.
+
+        The decline reason is decided in this order: `card_frozen`, `over_per_transaction_limit`,
+        `over_daily_limit`, `over_monthly_limit`, `over_tenant_monthly_limit`, `insufficient_funds`.
+        Code your retry logic against those six — a frozen card and an over-limit card are different
+        customer conversations, and `insufficient_funds` is the one a top-up fixes.
+        `over_tenant_monthly_limit` is the only one of the six that is not yours to set: it is a
+        ceiling FirstFlip places on what all of your cards may spend in a rolling 30 days
+        (**$1,000,000** of approved authorization spend per business).
+
+        Every answer is `201`: a decline is a recorded outcome of a real request, not a failed one.
+        A closed card is the exception and answers `409 card_closed`. Requires an `Idempotency-Key`
+        header — the same key cannot approve and decline two different attempts.
+
+        Live mode: refused with `403 live_mode_unavailable`, and this is the one leg that will stay that way.
+      parameters:
+        - $ref: "#/components/parameters/CardId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CardAuthorizationRequest" }
+            example: { amount: 25, merchant: Netflix }
+      responses:
+        "201":
+          headers:
+            Request-Id: { $ref: "#/components/headers/RequestId" }
+            Cache-Control: { $ref: "#/components/headers/CacheControl" }
+            X-RateLimit-Limit: { $ref: "#/components/headers/XRateLimitLimit" }
+            X-RateLimit-Remaining: { $ref: "#/components/headers/XRateLimitRemaining" }
+            Idempotent-Replayed: { $ref: "#/components/headers/IdempotentReplayed" }
+            Idempotency-Status-Version: { $ref: "#/components/headers/IdempotencyStatusVersion" }
+            Idempotency-Key-State: { $ref: "#/components/headers/IdempotencyKeyState" }
+            Idempotent-Original-At: { $ref: "#/components/headers/IdempotentOriginalAt" }
+            Idempotency-Reference: { $ref: "#/components/headers/IdempotencyReference" }
+          description: The authorization, approved or declined, with the balance either side of it.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CardTransaction" }
+              examples:
+                approved:
+                  $ref: "#/components/examples/cardAuthorizationApproved"
+                declined:
+                  $ref: "#/components/examples/cardAuthorizationDeclined"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { $ref: "#/components/responses/InternalError" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+
+  /cards/{id}/transactions:
+    get:
+      operationId: listCardTransactions
+      x-display-name: "List a card's transactions"
+      x-required-scope: cards:read
+      tags: [Cards]
+      summary: List a card's transactions
+      description: |
+        The card's own ledger, newest first: every credit, withdrawal and authorization attempt,
+        approved or declined. This is the reconciliation source — the rows sum to the card's
+        `balance`, and a declined row carries the `decline_code` that explains it.
+
+        Filter by `type` (`topup`, `withdrawal`, `authorization`) and/or `status` (`completed`,
+        `approved`, `declined`), by a `created_from`/`created_before` window, and page with `limit`
+        plus `starting_after`.
+
+        Live mode: refused — the rows behind a live card are the issuer's, and they are not synced into this
+        platform yet. An empty list would read as "this card has spent nothing", which is a guess, so this
+        answers `403 live_precondition_unmet` with `param: transaction_sync`.
+      parameters:
+        - $ref: "#/components/parameters/CardId"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/StartingAfter"
+        - $ref: "#/components/parameters/CreatedFrom"
+        - $ref: "#/components/parameters/CreatedBefore"
+        - name: type
+          in: query
+          required: false
+          description: Only rows of this kind.
+          schema: { type: string, enum: [topup, withdrawal, authorization], example: authorization }
+        - name: status
+          in: query
+          required: false
+          description: Only rows in this final state.
+          schema: { type: string, enum: [completed, approved, declined], example: declined }
+      responses:
+        "200":
+          headers:
+            Request-Id: { $ref: "#/components/headers/RequestId" }
+            Cache-Control: { $ref: "#/components/headers/CacheControl" }
+            X-RateLimit-Limit: { $ref: "#/components/headers/XRateLimitLimit" }
+            X-RateLimit-Remaining: { $ref: "#/components/headers/XRateLimitRemaining" }
+          description: A page of the card's transactions.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CardTransactionList" }
+              examples:
+                page:
+                  $ref: "#/components/examples/cardTransactionList"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { $ref: "#/components/responses/InternalError" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+
+  /otps/pricing:
+    $ref: "./api/services.openapi.json#/paths/~1otps~1pricing"
+
+  /otps:
+    $ref: "./api/services.openapi.json#/paths/~1otps"
+
+  /otps/{id}:
+    $ref: "./api/services.openapi.json#/paths/~1otps~1{id}"
+
+  /otps/{id}/validate:
+    $ref: "./api/services.openapi.json#/paths/~1otps~1{id}~1validate"
+
+  /fx/quotes:
+    $ref: "./api/services.openapi.json#/paths/~1fx~1quotes"
+
+  /fx/quotes/{id}:
+    $ref: "./api/services.openapi.json#/paths/~1fx~1quotes~1{id}"
+
+  /fx/quotes/{id}/simulate:
+    $ref: "./api/services.openapi.json#/paths/~1fx~1quotes~1{id}~1simulate"
+
+  /fx/trades:
+    $ref: "./api/services.openapi.json#/paths/~1fx~1trades"
+
+  /fx/trades/{id}:
+    $ref: "./api/services.openapi.json#/paths/~1fx~1trades~1{id}"
+
+  /fx/trades/{id}/simulate:
+    $ref: "./api/services.openapi.json#/paths/~1fx~1trades~1{id}~1simulate"
+
+  /virtual_accounts:
+    $ref: "./api/services.openapi.json#/paths/~1virtual_accounts"
+
+  /virtual_accounts/{id}:
+    $ref: "./api/services.openapi.json#/paths/~1virtual_accounts~1{id}"
+
+  /virtual_accounts/{id}/deactivate:
+    $ref: "./api/services.openapi.json#/paths/~1virtual_accounts~1{id}~1deactivate"
+
+  /virtual_accounts/{id}/simulate_payment:
+    $ref: "./api/services.openapi.json#/paths/~1virtual_accounts~1{id}~1simulate_payment"
+
+  /virtual_accounts/bulk:
+    $ref: "./api/services.openapi.json#/paths/~1virtual_accounts~1bulk"
+
+  /virtual_accounts/bulk/{id}:
+    $ref: "./api/services.openapi.json#/paths/~1virtual_accounts~1bulk~1{id}"
+
+  /verifications/bvn:
+    $ref: "./api/services.openapi.json#/paths/~1verifications~1bvn"
+
+  /verifications/bvn/{id}:
+    $ref: "./api/services.openapi.json#/paths/~1verifications~1bvn~1{id}"
+
+  /verifications/bvn/{id}/simulate:
+    $ref: "./api/services.openapi.json#/paths/~1verifications~1bvn~1{id}~1simulate"
+
+  /verifications/bank_account:
+    $ref: "./api/services.openapi.json#/paths/~1verifications~1bank_account"
+
+  /transfers:
+    $ref: "./api/services.openapi.json#/paths/~1transfers"
+
+  /transfers/{id}:
+    $ref: "./api/services.openapi.json#/paths/~1transfers~1{id}"
+
+  /transfers/{id}/simulate:
+    $ref: "./api/services.openapi.json#/paths/~1transfers~1{id}~1simulate"
+
+  /transfers/bulk:
+    $ref: "./api/services.openapi.json#/paths/~1transfers~1bulk"
+
+  /transfers/bulk/{id}:
+    $ref: "./api/services.openapi.json#/paths/~1transfers~1bulk~1{id}"
+
+webhooks:
+  charge.paid:
+    post:
+      operationId: onChargePaid
+      tags: [Webhooks]
+      summary: A charge was paid
+      description: |
+        Sent when a charge transitions to `paid`. `data.object` is the full [Charge](#/components/schemas/Charge)
+        with `status: "paid"` and a `paid_at`. This is the event to fulfil an order on. Delivery is
+        at-least-once and deduplicated by event `id`; return any `2xx` quickly to acknowledge.
+
+        **Verify every webhook over the RAW body before parsing it.** The `FirstFlip-Signature`
+        header is `t=<unix seconds>,v1=<hex>` where `v1 = HMAC-SHA256(signingSecret, "<t>.<rawBody>")`.
+        Recompute it with your endpoint's signing secret (`whsec_…`, shown once at registration),
+        compare in constant time, and reject if `t` is more than 300 seconds from now (replay guard).
+      parameters:
+        - $ref: "#/components/parameters/WebhookSignature"
+        - $ref: "#/components/parameters/WebhookEventId"
+        - $ref: "#/components/parameters/WebhookEventType"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/Event" }
+            examples:
+              charge_paid:
+                $ref: "#/components/examples/eventChargePaid"
+      responses:
+        "2XX":
+          description: Your endpoint acknowledged receipt. Any non-2xx (or a timeout) is retried with backoff.
+  charge.expired:
+    post:
+      operationId: onChargeExpired
+      tags: [Webhooks]
+      summary: A charge expired
+      description: |
+        Sent when a pending charge passes its `expires_at` without payment. `data.object` is the
+        Charge with `status: "expired"`. Verify the signature as described for `charge.paid`.
+      parameters:
+        - $ref: "#/components/parameters/WebhookSignature"
+        - $ref: "#/components/parameters/WebhookEventId"
+        - $ref: "#/components/parameters/WebhookEventType"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/Event" }
+            examples:
+              charge_expired:
+                $ref: "#/components/examples/eventChargeExpired"
+      responses:
+        "2XX":
+          description: Acknowledged.
+  charge.cancelled:
+    post:
+      operationId: onChargeCancelled
+      tags: [Webhooks]
+      summary: A charge was cancelled
+      description: |
+        Sent when you cancel a pending charge. `data.object` is the Charge with
+        `status: "cancelled"`. Verify the signature as described for `charge.paid`.
+      parameters:
+        - $ref: "#/components/parameters/WebhookSignature"
+        - $ref: "#/components/parameters/WebhookEventId"
+        - $ref: "#/components/parameters/WebhookEventType"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/Event" }
+            examples:
+              charge_cancelled:
+                $ref: "#/components/examples/eventChargeCancelled"
+      responses:
+        "2XX":
+          description: Acknowledged.
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: 'ffk_test_… or ffk_live_…'
+      description: Your secret key from FirstFlip (issued on request during the beta). Keep it on your server only.
+
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: |
+        A unique key you generate (e.g. a UUID v4), up to 255 characters. Required on every POST
+        that creates or changes something. Retry a failed request with the same key to replay the
+        original response instead of acting twice.
+      schema:
+        type: string
+        maxLength: 255
+      example: a1b2c3d4-e5f6-4789-a0b1-c2d3e4f50617
+    Limit:
+      name: limit
+      in: query
+      required: false
+      description: Page size, 1–100 (default 20).
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+      example: 20
+    StartingAfter:
+      name: starting_after
+      in: query
+      required: false
+      description: A cursor — the id of the last object on the previous page. Returns the next page (older) items.
+      schema: { type: string, example: ch_test_2a3b4c5d6e7f80910a1b2c3d }
+    CreatedFrom:
+      name: created_from
+      in: query
+      required: false
+      description: |
+        Only objects created at or after this instant. RFC 3339; a bare date means midnight UTC.
+        With `created_before` it forms a half-open window, so `created_from=2026-11-04&created_before=2026-11-05`
+        is exactly that UTC day, and consecutive windows never count an object twice.
+      schema: { type: string, format: date-time, example: "2026-11-04T00:00:00Z" }
+    CreatedBefore:
+      name: created_before
+      in: query
+      required: false
+      description: Only objects created strictly before this instant. RFC 3339; a bare date means midnight UTC.
+      schema: { type: string, format: date-time, example: "2026-11-05T00:00:00Z" }
+    ChargeId:
+      name: id
+      in: path
+      required: true
+      description: The charge id (`ch_test_…`).
+      schema: { type: string }
+      example: ch_test_0a1b2c3d4e5f60718293a4b5
+    PaymentLinkId:
+      name: id
+      in: path
+      required: true
+      description: The payment link id (`pl_test_…`).
+      schema: { type: string }
+      example: pl_test_1a2b3c4d5e6f70819a0b1c2d
+    SubAccountId:
+      name: id
+      in: path
+      required: true
+      description: The sub-account id (`sa_test_…`).
+      schema: { type: string }
+      example: sa_test_2a3b4c5d6e7f80910a1b2c3d
+    CardId:
+      name: id
+      in: path
+      required: true
+      description: The card id (`card_test_…`) returned when the card was issued.
+      schema: { type: string }
+      example: card_test_3a4b5c6d7e8f90122a3b4c5d
+    HostedToken:
+      name: token
+      in: path
+      required: true
+      description: The 32-character hex capability token embedded in a hosted URL.
+      schema:
+        type: string
+        pattern: "^[0-9a-f]{32}$"
+        example: a1b2c3d4e5f60718293a4b5c6d7e8f90
+    WebhookSignature:
+      name: FirstFlip-Signature
+      in: header
+      required: true
+      description: "`t=<unix seconds>,v1=<hex HMAC-SHA256(signingSecret, \"<t>.<rawBody>\")>`. Verify over the raw body."
+      schema: { type: string }
+      example: t=1762000496,v1=5257a869e7ecebeda32affa5f9f6e3b0c0e3f1d2a3b4c5d6e7f8091a2b3c4d5e6
+    WebhookEventId:
+      name: FirstFlip-Event-Id
+      in: header
+      required: true
+      description: The event id (`evt_…`). Use it to deduplicate at-least-once deliveries.
+      schema: { type: string }
+    WebhookEventType:
+      name: FirstFlip-Event-Type
+      in: header
+      required: true
+      description: The event type, e.g. `charge.paid`.
+      schema: { type: string }
+
+  headers:
+    RequestId:
+      description: A UUID generated for this one request. Log it; support cannot investigate a failure without one.
+      schema: { type: string, format: uuid }
+      required: true
+    Location:
+      description: The URL the browser is sent to. Present on every `303`.
+      schema: { type: string, format: uri }
+      required: true
+    IdempotentReplayed:
+      description: "Always present on an answer that went through the Idempotency-Key layer: `false` when this request ran now, `true` when the answer saved under the same key was replayed."
+      required: true
+      schema: { type: string, enum: ["true", "false"] }
+    IdempotencyStatusVersion:
+      description: "Always `1` today. Read it before parsing the other key headers, so a future version can add values without breaking you."
+      required: true
+      schema: { type: string, enum: ["1"] }
+    IdempotencyKeyState:
+      description: "The key's state after this answer: `completed` — the answer is saved and will be replayed; `pending` — another request with this key is still running; `failed` — the answer was a server error and the key was released, so the same key may be retried."
+      required: true
+      schema: { type: string, enum: ["pending", "completed", "failed"] }
+    IdempotentOriginalAt:
+      description: "Present only on a replay: when the saved answer was stored (ISO 8601)."
+      schema: { type: string, format: date-time }
+    IdempotencyReference:
+      description: "Present only on a replay when the saved answer carried a receipt: its `reference`."
+      schema: { type: string }
+    XRateLimitLimit:
+      description: The request ceiling for the current window.
+      schema: { type: string }
+    XRateLimitRemaining:
+      description: Requests remaining in the current window.
+      schema: { type: string }
+    RetryAfter:
+      description: Seconds to wait before retrying.
+      schema: { type: string }
+
+    CacheControl:
+      description: "Always `no-store`: account data, balances and hosted pages must never sit in a shared or browser cache."
+      required: true
+      schema: { type: string, enum: [no-store] }
+  responses:
+    BadRequest:
+      headers:
+        Request-Id: { $ref: "#/components/headers/RequestId" }
+        Cache-Control: { $ref: "#/components/headers/CacheControl" }
+        X-RateLimit-Limit: { $ref: "#/components/headers/XRateLimitLimit" }
+        X-RateLimit-Remaining: { $ref: "#/components/headers/XRateLimitRemaining" }
+      description: The request is invalid (see `code`/`param`). Includes malformed JSON and a missing Idempotency-Key.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          examples:
+            invalid_parameter:
+              value: { error: { type: invalid_request_error, code: invalid_parameter, message: currency must be NGN or USD, param: currency } }
+            amount_too_small:
+              value: { error: { type: invalid_request_error, code: amount_too_small, message: The minimum charge is 5000 NGN, param: amount } }
+            idempotency_key_required:
+              value: { error: { type: idempotency_error, code: idempotency_key_required, message: "Send a unique Idempotency-Key header (up to 255 characters) with every POST.", param: null } }
+            invalid_json:
+              value: { error: { type: invalid_request_error, code: invalid_json, message: The request body is not valid JSON., param: null } }
+    Unauthorized:
+      headers:
+        Request-Id: { $ref: "#/components/headers/RequestId" }
+        Cache-Control: { $ref: "#/components/headers/CacheControl" }
+        X-RateLimit-Limit: { $ref: "#/components/headers/XRateLimitLimit" }
+        X-RateLimit-Remaining: { $ref: "#/components/headers/XRateLimitRemaining" }
+      description: The secret key is missing, malformed, revoked, or for the wrong mode.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example: { error: { type: authentication_error, code: invalid_api_key, message: This API key is invalid or has been revoked., param: null } }
+    Forbidden:
+      headers:
+        Request-Id: { $ref: "#/components/headers/RequestId" }
+        Cache-Control: { $ref: "#/components/headers/CacheControl" }
+        X-RateLimit-Limit: { $ref: "#/components/headers/XRateLimitLimit" }
+        X-RateLimit-Remaining: { $ref: "#/components/headers/XRateLimitRemaining" }
+      description: The key or business is not permitted (IP not allow-listed, business inactive, the key's scopes
+        do not cover this endpoint, or live mode is not open).
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          examples:
+            insufficient_scope:
+              value: { error: { type: authentication_error, code: insufficient_scope, message: "This key (Server ••••4821) does not carry the \"charges:write\" scope. Create a key that does.", param: null } }
+            live_mode_unavailable:
+              value: { error: { type: invalid_request_error, code: live_mode_unavailable, message: "Live charges are not open yet. Use your ffk_test_ key; your integration will work unchanged when live mode opens.", param: null } }
+            live_precondition_unmet:
+              value: { error: { type: invalid_request_error, code: live_precondition_unmet, message: "This live card leg waits on FirstFlip's funding rails: a tenant USD balance to move money from. Nothing was changed and no money moved.", param: "funding" } }
+            business_inactive:
+              value: { error: { type: authentication_error, code: business_inactive, message: The business that owns this key is not active., param: null } }
+            ip_not_allowed:
+              value: { error: { type: authentication_error, code: ip_not_allowed, message: "Requests from 203.0.113.9 are not on this key's IP allow-list.", param: null } }
+    NotFound:
+      headers:
+        Request-Id: { $ref: "#/components/headers/RequestId" }
+        Cache-Control: { $ref: "#/components/headers/CacheControl" }
+        X-RateLimit-Limit: { $ref: "#/components/headers/XRateLimitLimit" }
+        X-RateLimit-Remaining: { $ref: "#/components/headers/XRateLimitRemaining" }
+      description: No such resource for this key.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example: { error: { type: invalid_request_error, code: resource_missing, message: "No such charge: ch_test_does_not_exist", param: id } }
+    Conflict:
+      headers:
+        Request-Id: { $ref: "#/components/headers/RequestId" }
+        Cache-Control: { $ref: "#/components/headers/CacheControl" }
+        X-RateLimit-Limit: { $ref: "#/components/headers/XRateLimitLimit" }
+        X-RateLimit-Remaining: { $ref: "#/components/headers/XRateLimitRemaining" }
+        Idempotent-Replayed: { $ref: "#/components/headers/IdempotentReplayed" }
+        Idempotency-Status-Version: { $ref: "#/components/headers/IdempotencyStatusVersion" }
+        Idempotency-Key-State: { $ref: "#/components/headers/IdempotencyKeyState" }
+        Idempotent-Original-At: { $ref: "#/components/headers/IdempotentOriginalAt" }
+        Idempotency-Reference: { $ref: "#/components/headers/IdempotencyReference" }
+      description: The request conflicts with the resource's state or an in-flight idempotent request.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          examples:
+            charge_not_pending:
+              value: { error: { type: invalid_request_error, code: charge_not_pending, message: This charge is paid and can no longer be cancelled., param: null } }
+            duplicate_reference:
+              value: { error: { type: invalid_request_error, code: duplicate_reference, message: "A charge with reference \"order_1048\" already exists", param: reference } }
+            idempotency_in_progress:
+              value: { error: { type: idempotency_error, code: idempotency_in_progress, message: A request with this Idempotency-Key is still in progress., param: null } }
+    PayloadTooLarge:
+      headers:
+        Request-Id: { $ref: "#/components/headers/RequestId" }
+        Cache-Control: { $ref: "#/components/headers/CacheControl" }
+        X-RateLimit-Limit: { $ref: "#/components/headers/XRateLimitLimit" }
+        X-RateLimit-Remaining: { $ref: "#/components/headers/XRateLimitRemaining" }
+      description: The request body exceeds the size limit.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example: { error: { type: invalid_request_error, code: body_too_large, message: The request body is too large., param: null } }
+    Unprocessable:
+      headers:
+        Request-Id: { $ref: "#/components/headers/RequestId" }
+        Cache-Control: { $ref: "#/components/headers/CacheControl" }
+        X-RateLimit-Limit: { $ref: "#/components/headers/XRateLimitLimit" }
+        X-RateLimit-Remaining: { $ref: "#/components/headers/XRateLimitRemaining" }
+        Idempotent-Replayed: { $ref: "#/components/headers/IdempotentReplayed" }
+        Idempotency-Status-Version: { $ref: "#/components/headers/IdempotencyStatusVersion" }
+        Idempotency-Key-State: { $ref: "#/components/headers/IdempotencyKeyState" }
+        Idempotent-Original-At: { $ref: "#/components/headers/IdempotentOriginalAt" }
+        Idempotency-Reference: { $ref: "#/components/headers/IdempotencyReference" }
+      description: The Idempotency-Key was already used with a different request body.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example: { error: { type: idempotency_error, code: idempotency_key_reused, message: This Idempotency-Key was already used with a different request., param: null } }
+    RateLimited:
+      headers:
+        Request-Id: { $ref: "#/components/headers/RequestId" }
+        Cache-Control: { $ref: "#/components/headers/CacheControl" }
+        X-RateLimit-Limit: { $ref: "#/components/headers/XRateLimitLimit" }
+        X-RateLimit-Remaining: { $ref: "#/components/headers/XRateLimitRemaining" }
+        Retry-After: { $ref: "#/components/headers/RetryAfter" }
+      description: Too many requests. Honor `Retry-After`.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example: { error: { type: rate_limit_error, code: rate_limited, message: Too many requests. Retry after 30 seconds., param: null } }
+    InternalError:
+      headers:
+        Request-Id: { $ref: "#/components/headers/RequestId" }
+        Cache-Control: { $ref: "#/components/headers/CacheControl" }
+        X-RateLimit-Limit: { $ref: "#/components/headers/XRateLimitLimit" }
+        X-RateLimit-Remaining: { $ref: "#/components/headers/XRateLimitRemaining" }
+      description: An unexpected error on FirstFlip's side.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example: { error: { type: api_error, code: internal_error, message: Something went wrong on our end., param: null } }
+    ServiceUnavailable:
+      headers:
+        Request-Id: { $ref: "#/components/headers/RequestId" }
+        Cache-Control: { $ref: "#/components/headers/CacheControl" }
+        Retry-After: { $ref: "#/components/headers/RetryAfter" }
+      description: FirstFlip is briefly unavailable (service down or exchange rates unavailable). Retry shortly.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          examples:
+            service_unavailable:
+              value: { error: { type: api_error, code: service_unavailable, message: FirstFlip is briefly unavailable. Retry shortly., param: null } }
+            rate_unavailable:
+              value: { error: { type: api_error, code: rate_unavailable, message: Exchange rates are briefly unavailable. Retry in a few seconds., param: null } }
+
+  schemas:
+    Error:
+      type: object
+      description: The one error shape returned by every /v1 endpoint.
+      required: [error]
+      additionalProperties: false
+      properties:
+        error:
+          type: object
+          required: [type, code, message]
+          properties:
+            type:
+              type: string
+              description: The family of the error.
+              enum:
+                - invalid_request_error
+                - authentication_error
+                - idempotency_error
+                - rate_limit_error
+                - api_error
+            code:
+              type: string
+              description: Stable, machine-readable reason (see x-error-codes).
+            message:
+              type: string
+              description: Human-readable explanation. Safe to log; not necessarily safe to show verbatim to end-users.
+            param:
+              type: [string, "null"]
+              description: The request field the error refers to, when applicable.
+    Account:
+      type: object
+      description: The business behind the current secret key.
+      properties:
+        object: { type: string, const: account }
+        business_name:
+          type: [string, "null"]
+          description: The business's display name, or null if unset.
+        livemode:
+          type: boolean
+          description: Whether this key operates on live data. Always false today.
+        key:
+          type: string
+          description: The masked form of the key in use.
+          example: ffk_test_…a1b2
+      required: [object, livemode, key]
+    Metadata:
+      type: object
+      description: |
+        Up to 20 key/value pairs you attach to an object; echoed back on reads and in webhooks.
+        Keys match `^[A-Za-z0-9_-]{1,40}$`. Values are stored as strings (numbers and booleans are
+        coerced to strings) of at most 500 characters.
+      additionalProperties: { type: string }
+      maxProperties: 20
+      propertyNames:
+        pattern: "^[A-Za-z0-9_-]{1,40}$"
+      example: { order_id: "1048", channel: web }
+    ChargeCustomer:
+      type: object
+      description: Optional customer details attached to a charge.
+      properties:
+        name: { type: [string, "null"], maxLength: 120 }
+        email: { type: [string, "null"], maxLength: 254, format: email }
+    ChargePayment:
+      type: object
+      description: The crypto payment instructions and quote for a charge.
+      properties:
+        asset:
+          type: string
+          enum: [USDT, USDC, BTC]
+          description: The asset the customer pays in.
+        network:
+          type: string
+          enum: [trc20, bep20, bitcoin]
+          description: The network for the asset.
+        address:
+          type: string
+          description: The pay-to address. In test mode this is a labelled `TEST-…` placeholder that nothing watches.
+          example: TEST-TRC20-9f8e7d6c5b4a39281706
+        asset_amount:
+          type: number
+          description: The exact amount of `asset` the customer must send (includes the receive fee).
+          example: 15.512345
+        fee_asset_amount:
+          type: number
+          description: The portion of `asset_amount` that is the FirstFlip receive fee.
+          example: 1.55
+        rate_locked_until:
+          type: string
+          format: date-time
+          description: The quoted rate holds until this time.
+    Charge:
+      type: object
+      description: A one-time request for payment.
+      properties:
+        id: { type: string, description: "Unique id (`ch_test_…`).", example: ch_test_0a1b2c3d4e5f60718293a4b5 }
+        object: { type: string, const: charge }
+        livemode: { type: boolean, description: Always false today. }
+        status:
+          type: string
+          enum: [pending, paid, expired, cancelled]
+          description: Lifecycle state. Terminal states are paid, expired and cancelled.
+        amount:
+          type: number
+          description: The amount in major units of `currency` (e.g. 25000 means ₦25,000.00).
+          example: 25000
+        currency: { type: string, enum: [NGN, USD] }
+        description: { type: [string, "null"], maxLength: 500 }
+        reference: { type: [string, "null"], maxLength: 100, description: Your order id; unique within your business. }
+        metadata: { $ref: "#/components/schemas/Metadata" }
+        customer: { $ref: "#/components/schemas/ChargeCustomer" }
+        payment: { $ref: "#/components/schemas/ChargePayment" }
+        hosted_url:
+          type: string
+          format: uri
+          description: The page where the customer completes payment.
+          example: https://api.firstflip.ng/v1/sandbox/pay/0123456789abcdef0123456789abcdef
+        payment_link:
+          type: [string, "null"]
+          description: The payment link id (`pl_test_…`) this charge was created from, or null.
+        created_at: { type: string, format: date-time }
+        expires_at: { type: string, format: date-time }
+        paid_at: { type: [string, "null"], format: date-time, description: 'When the charge was paid, or null.' }
+      required: [id, object, livemode, status, amount, currency, metadata, customer, payment, hosted_url, created_at, expires_at]
+    CreateChargeRequest:
+      type: object
+      description: Body for creating a charge. `amount` is your price; every other number is derived server-side.
+      required: [amount, currency]
+      properties:
+        amount:
+          type: number
+          exclusiveMinimum: 0
+          description: |
+            The price in major units of `currency`, at most 2 decimal places. Must be at least the
+            minimum charge (default 5 USD / 5000 NGN, configurable) and at most 1,000,000 USD or
+            1,000,000,000 NGN.
+          example: 25000
+        currency: { type: string, enum: [NGN, USD] }
+        pay_asset:
+          type: string
+          enum: [USDT, USDC, BTC]
+          default: USDT
+          description: The asset the customer pays in.
+        pay_network:
+          type: string
+          enum: [trc20, bep20, bitcoin]
+          description: |
+            The network. Must be valid for `pay_asset`: USDT → trc20 or bep20 (default trc20);
+            USDC → bep20 (default bep20); BTC → bitcoin (default bitcoin). Defaults to the asset's
+            default network if omitted.
+        description: { type: string, maxLength: 500, description: Shown on the hosted pay page. }
+        reference:
+          type: string
+          maxLength: 100
+          description: Your own order id. Must be unique within your business.
+        expires_in_minutes:
+          type: integer
+          minimum: 15
+          maximum: 10080
+          default: 60
+          description: How long the charge stays payable (15 minutes to 7 days).
+        metadata: { $ref: "#/components/schemas/Metadata" }
+        customer: { $ref: "#/components/schemas/ChargeCustomer" }
+    ChargeList:
+      type: object
+      description: A page of charges, newest first.
+      properties:
+        object: { type: string, const: list }
+        data:
+          type: array
+          items: { $ref: "#/components/schemas/Charge" }
+        has_more:
+          type: boolean
+          description: Whether more items exist after this page (use `starting_after`).
+      required: [object, data, has_more]
+    PaymentLink:
+      type: object
+      description: A reusable link that mints a fresh charge for each visitor.
+      properties:
+        id: { type: string, description: "Unique id (`pl_test_…`).", example: pl_test_1a2b3c4d5e6f70819a0b1c2d }
+        object: { type: string, const: payment_link }
+        livemode: { type: boolean, description: Always false today. }
+        active: { type: boolean, description: Whether the link still creates new charges. }
+        url:
+          type: string
+          format: uri
+          description: The shareable link. Opening it lands on a page that creates a charge on "Continue".
+          example: https://api.firstflip.ng/v1/sandbox/l/fedcba9876543210fedcba9876543210
+        amount: { type: number, description: "Price per charge, in major units of `currency`." }
+        currency: { type: string, enum: [NGN, USD] }
+        description: { type: [string, "null"], maxLength: 500 }
+        pay_asset: { type: string, enum: [USDT, USDC, BTC] }
+        pay_network: { type: string, enum: [trc20, bep20, bitcoin] }
+        metadata: { $ref: "#/components/schemas/Metadata" }
+        max_uses:
+          type: [integer, "null"]
+          minimum: 1
+          description: Maximum charges the link may create, or null for unlimited.
+        uses: { type: integer, description: Charges created from the link so far. }
+        created_at: { type: string, format: date-time }
+      required: [id, object, livemode, active, url, amount, currency, pay_asset, pay_network, metadata, uses, created_at]
+    CreatePaymentLinkRequest:
+      type: object
+      description: |
+        Body for creating a payment link. Shares the amount/currency/asset/network/metadata rules of
+        a charge. It has no `reference` or `customer` (those belong on charges) — sending either
+        returns 400.
+      required: [amount, currency]
+      properties:
+        amount:
+          type: number
+          exclusiveMinimum: 0
+          description: Price per charge, in major units of `currency` (same bounds as a charge's amount).
+          example: 10
+        currency: { type: string, enum: [NGN, USD] }
+        pay_asset: { type: string, enum: [USDT, USDC, BTC], default: USDT }
+        pay_network:
+          type: string
+          enum: [trc20, bep20, bitcoin]
+          description: Must be valid for `pay_asset` (see CreateChargeRequest).
+        description: { type: string, maxLength: 500 }
+        max_uses:
+          type: integer
+          minimum: 1
+          maximum: 1000000
+          description: Cap the number of charges the link may create. Omit for unlimited.
+        metadata: { $ref: "#/components/schemas/Metadata" }
+    PaymentLinkList:
+      type: object
+      description: A page of payment links, newest first.
+      properties:
+        object: { type: string, const: list }
+        data:
+          type: array
+          items: { $ref: "#/components/schemas/PaymentLink" }
+        has_more: { type: boolean }
+      required: [object, data, has_more]
+    SubAccount:
+      type: object
+      description: |
+        One of your end-users, provisioned under your business. A sandbox identity today: no
+        wallet, no balance, no real money. `sandbox` states that on every object rather than
+        leaving it to the prose.
+      properties:
+        id: { type: string, description: "Unique id (`sa_test_…`).", example: sa_test_2a3b4c5d6e7f80910a1b2c3d }
+        object: { type: string, const: subaccount }
+        livemode: { type: boolean, description: Always false today. }
+        reference: { type: string, maxLength: 100, description: Your id for this tenant; unique within your business. }
+        name: { type: string, maxLength: 100 }
+        email: { type: [string, "null"], maxLength: 254 }
+        status: { type: string, enum: [active, suspended], description: Your control over the tenant. }
+        tier: { type: integer, minimum: 0, maximum: 4, description: Reserved for tiered limits; always 0 today. }
+        metadata: { $ref: "#/components/schemas/Metadata" }
+        sandbox:
+          type: object
+          description: What this sub-account can do today.
+          properties:
+            wallet_provisioned: { type: boolean, const: false, description: No wallet exists for a sub-account yet. }
+            accepts_real_money: { type: boolean, const: false, description: 'No, and this flag is the contract.' }
+          required: [wallet_provisioned, accepts_real_money]
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+      required: [id, object, livemode, reference, name, email, status, tier, metadata, sandbox, created_at, updated_at]
+    CreateSubAccountRequest:
+      type: object
+      description: |
+        Body for creating a sub-account. `name` is required; `email` is optional. `reference` is
+        yours and must be unique within your business (a repeat returns `409 duplicate_reference`).
+        It is used as the id when omitted.
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100, description: The sub-account's display name. }
+        email: { type: string, format: email, maxLength: 254, description: Optional contact email. }
+        reference: { type: string, minLength: 1, maxLength: 100, description: "Your id for this tenant. Must be unique within your business." }
+        metadata: { $ref: "#/components/schemas/Metadata" }
+    SubAccountList:
+      type: object
+      description: A page of sub-accounts, newest first.
+      properties:
+        object: { type: string, const: list }
+        data:
+          type: array
+          items: { $ref: "#/components/schemas/SubAccount" }
+        has_more: { type: boolean }
+      required: [object, data, has_more]
+    Card:
+      type: object
+      description: |
+        A sandbox USD card issued to one of your customers. Test mode only, and deliberately so: there is no
+        issuer behind this object, no PAN exists to leak, and `balance` is a number on this document rather than
+        money in a wallet. What is real is the shape and the lifecycle — the same calls, ids and errors your
+        integration will make against a live card program.
+      properties:
+        id: { type: string, description: "Unique id (`card_test_…`); the cursor value for `starting_after`.", example: card_test_3a4b5c6d7e8f90122a3b4c5d }
+        object: { type: string, const: card }
+        livemode: { type: boolean, description: Always false today — cards are a test-mode surface. }
+        reference: { type: string, description: "Your own id for this card. Unique per key and mode; defaults to `id`. Reusing one answers `409 duplicate_reference`.", example: customer_8842_usd }
+        status:
+          type: string
+          enum: [active, frozen, closed]
+          description: |
+            Lifecycle state. `active` spends and withdraws; `frozen` refuses new authorizations and withdrawals
+            but still holds its balance; `closed` is terminal — it cannot be reopened, only replaced.
+        currency: { type: string, const: USD, description: The only card currency today. A charge is settled in crypto assets; a card is held in USD. }
+        balance:
+          type: number
+          description: What the card holds, in major units. Money moves only through `/fund`, `/withdraw` and an approved `/simulate_authorization`.
+          example: 250
+        number_last4:
+          type: string
+          description: |
+            The last four digits of the printed number. Generated when the card was issued and never derived from
+            anything: there is no full number anywhere in the platform, so there is nothing to redact and no
+            issuer record to look the rest of it up in.
+          example: "4921"
+        expiry_month: { type: integer, minimum: 1, maximum: 12, description: "Printed expiry month, generated at issue." }
+        expiry_year: { type: integer, minimum: 2031, maximum: 2034, description: "Printed expiry year, generated at issue." }
+        limits:
+          type: object
+          description: |
+            The spend ceilings a card refuses authorizations against, checked per authorization inside the same
+            transaction that moves the balance. `null` means no ceiling on that axis, not zero.
+          properties:
+            daily: { type: [number, "null"], description: "Rolling 24 hours of approved authorizations, in major units — not a calendar day." }
+            per_transaction: { type: [number, "null"], description: "The largest single authorization the card will accept, in major units." }
+            monthly: { type: [number, "null"], description: "Rolling 30 days of approved authorizations, in major units." }
+        frozen_reason: { type: [string, "null"], description: "The reason you froze the card, or null. Cleared on unfreeze." }
+        closed_reason: { type: [string, "null"], description: "The reason you closed the card, or null. Never cleared." }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+        sandbox:
+          type: object
+          description: What this card is not. Read it once and stop guessing.
+          properties:
+            real_card: { type: boolean, const: false, description: "No card network, issuer or PAN stands behind this card." }
+            funds_movable: { type: boolean, const: false, description: "A balance here cannot be spent, withdrawn or settled into money." }
+      required: [id, object, livemode, reference, status, currency, balance, number_last4, expiry_month, expiry_year, limits, created_at, updated_at, sandbox]
+    CardList:
+      type: object
+      description: A page of cards, newest first.
+      properties:
+        object: { type: string, const: list }
+        data:
+          type: array
+          items: { $ref: "#/components/schemas/Card" }
+        has_more: { type: boolean }
+      required: [object, data, has_more]
+    CardTransaction:
+      type: object
+      description: |
+        One movement on one card. Every row here is final as it lands: the row and the balance it describes are
+        committed in the same MongoDB transaction, so a row can never record a move the card did not take, and a
+        balance can never move without the row that says why.
+      properties:
+        id: { type: string, description: "Unique id (`cardtxn_test_…`).", example: cardtxn_test_5e6f70819a0b1c2d3e4f5061 }
+        object: { type: string, const: card_transaction }
+        livemode: { type: boolean, description: Always false today. }
+        card_id: { type: string, description: The card this moved money on (`card_test_…`). }
+        reference: { type: string, description: "Defaults to `id`. Rows are not addressed by reference." }
+        type:
+          type: string
+          enum: [topup, withdrawal, authorization]
+          description: "`topup` adds, `withdrawal` takes away, `authorization` is a spend the card's own limits decided."
+        status:
+          type: string
+          enum: [completed, approved, declined]
+          description: "`completed` for a funds-in/out row, `approved` or `declined` for an authorization. There is no pending state: a row lands decided."
+        currency: { type: string, const: USD }
+        amount: { type: number, description: "The amount in major units, always positive. The direction is `type`, never the sign." }
+        balance_before: { type: number, description: Card balance in major units before this row applied. }
+        balance_after: { type: number, description: "Card balance in major units after it applied — for a decline, the same number as `balance_before`." }
+        merchant: { type: [string, "null"], description: "The merchant string you sent with the authorization, or null." }
+        decline_code:
+          type: [string, "null"]
+          description: |
+            Why an authorization was refused, or null for anything that landed. This is the field your retry
+            logic should branch on: `card_frozen`, `over_per_transaction_limit`, `over_daily_limit`,
+            `over_monthly_limit`, `over_tenant_monthly_limit`, `insufficient_funds`. The first four and the
+            last are yours to move; `over_tenant_monthly_limit` is a ceiling FirstFlip sets on all of your
+            cards together.
+        created_at: { type: string, format: date-time }
+        sandbox:
+          type: object
+          properties:
+            settled: { type: boolean, const: false, description: "No authorization here clears, so there is no capture, no settlement and no chargeback behind it." }
+      required: [id, object, livemode, card_id, type, status, currency, amount, balance_before, balance_after, created_at, sandbox]
+    CardTransactionList:
+      type: object
+      description: A page of one card's transactions, newest first.
+      properties:
+        object: { type: string, const: list }
+        data:
+          type: array
+          items: { $ref: "#/components/schemas/CardTransaction" }
+        has_more: { type: boolean }
+      required: [object, data, has_more]
+    CreateCardRequest:
+      type: object
+      description: Issue a card for one of your customers.
+      required: [customer]
+      additionalProperties: false
+      properties:
+        currency:
+          type: string
+          const: USD
+          description: Optional, and only ever `USD`. Anything else is `400 invalid_parameter` rather than a fallback.
+        reference:
+          type: string
+          maxLength: 100
+          description: "Your id for this card. Unique per key and mode; defaults to the generated `id`. A second attempt with the same reference and a different Idempotency-Key answers `409 duplicate_reference`."
+          example: customer_8842_usd
+        customer:
+          type: object
+          description: |
+            Who the card is for. Only these three fields are accepted, and nothing about the customer is stored —
+            the same rule virtual accounts hold. Names and emails live in your database; the card carries your
+            `reference` so you can join them back.
+          required: [email, first_name, last_name]
+          additionalProperties: false
+          properties:
+            email: { type: string, format: email, maxLength: 254, description: "Must be a valid address: `someone@app` is rejected, `someone@app.co` is not." }
+            first_name: { type: string, minLength: 1, maxLength: 100 }
+            last_name: { type: string, minLength: 1, maxLength: 100 }
+        daily_limit: { type: [number, "null"], minimum: 0.01, description: "Rolling-24h authorization ceiling in major units. Omit or null for no ceiling." }
+        per_transaction_limit: { type: [number, "null"], minimum: 0.01, description: "Largest single authorization in major units. Omit or null for no ceiling." }
+        monthly_limit: { type: [number, "null"], minimum: 0.01, description: "Rolling-30-day authorization ceiling in major units. Omit or null for no ceiling." }
+    CardAmountRequest:
+      type: object
+      required: [amount]
+      additionalProperties: false
+      properties:
+        amount:
+          type: number
+          exclusiveMinimum: 0
+          maximum: 100000000000
+          description: |
+            Major units with at most two decimals (so `10.005` is a `400`, and so are `true`, `[]` and `"10"` —
+            no coercion, because a silently converted amount is a reconciliation break you find later).
+          example: 100
+    CardReasonRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Stored on the card and echoed on every read, so your support desk can see why a card stopped.
+          example: Customer reported a lost device
+    CardLimitsRequest:
+      type: object
+      description: |
+        Change the spend ceilings. Only the axes you name are written: an omitted field means "leave it alone",
+        an explicit `null` means "remove that ceiling". That distinction is the whole point — a partial update
+        cannot silently unlimit an axis you forgot to send.
+      minProperties: 1
+      additionalProperties: false
+      properties:
+        daily_limit: { type: [number, "null"], minimum: 0.01, description: "Rolling 24 hours, major units." }
+        per_transaction_limit: { type: [number, "null"], minimum: 0.01, description: "Largest single authorization, major units." }
+        monthly_limit: { type: [number, "null"], minimum: 0.01, description: "Rolling 30 days, major units." }
+    CardAuthorizationRequest:
+      type: object
+      required: [amount]
+      additionalProperties: false
+      properties:
+        amount:
+          type: number
+          exclusiveMinimum: 0
+          maximum: 100000000000
+          description: The swipe, in major units with at most two decimals.
+          example: 42.5
+        merchant:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: |
+            Free text, stored on the row. It does not change the verdict: no merchant category, country or channel
+            is evaluated, because nothing here settles. Send it anyway — it is the field your reconciliation will
+            want when this lane goes live.
+          example: BLUE ORIGIN TRAVEL
+    AssistantAnswer:
+      type: object
+      description: An answer from the developer documentation assistant.
+      properties:
+        object: { type: string, const: assistant_answer }
+        answer: { type: string, description: 'The answer, drawn only from published FirstFlip docs.' }
+        removed_claims:
+          type: integer
+          minimum: 0
+          description: How many unsupported claims the safety scrub removed from the answer.
+      required: [object, answer, removed_claims]
+    Event:
+      type: object
+      description: |
+        A webhook event FirstFlip POSTs to your registered endpoint. The body is signed; verify
+        `FirstFlip-Signature` over the raw bytes before parsing.
+      properties:
+        id: { type: string, description: "Unique event id (`evt_…`).", example: evt_0a1b2c3d4e5f60718293a4b5 }
+        object: { type: string, const: event }
+        type:
+          type: string
+          description: The event type.
+          enum: [charge.paid, charge.expired, charge.cancelled, fx.quote.processing, fx.quote.ready, fx.quote.expired, fx.quote.failed, fx.trade.pending, fx.trade.settled, fx.trade.failed, virtual_account.payment.successful, virtual_account.payment.failed, virtual_account.payment.reversed, bvn.verified, bvn.declined, bvn.failed, transfer.pending, transfer.successful, transfer.failed, card.created, card.funded, card.withdrawn, card.frozen, card.unfrozen, card.closed, card.limits.updated, card.authorization.approved, card.authorization.declined]
+        livemode: { type: boolean, description: Always false today. }
+        created_at: { type: string, format: date-time }
+        data:
+          type: object
+          description: The event payload.
+          properties:
+            object:
+              oneOf:
+                - $ref: "#/components/schemas/Charge"
+                - $ref: "./api/services.openapi.json#/components/schemas/FxQuote"
+                - $ref: "./api/services.openapi.json#/components/schemas/FxTrade"
+                - $ref: "./api/services.openapi.json#/components/schemas/VirtualAccountPayment"
+                - $ref: "./api/services.openapi.json#/components/schemas/BvnVerification"
+                - $ref: "./api/services.openapi.json#/components/schemas/Transfer"
+                - $ref: "#/components/schemas/Card"
+                - $ref: "#/components/schemas/CardTransaction"
+          required: [object]
+      required: [id, object, type, livemode, created_at, data]
+    WebhookEndpoint:
+      type: object
+      description: |
+        A destination FirstFlip POSTs events to. Managed by the business owner over
+        `POST /api/business/developer/webhooks` (not via /v1). The signing secret (`whsec_…`) is shown once at creation
+        and stored encrypted so deliveries can be signed. The URL must be public HTTPS on port 443
+        (an SSRF guard rejects private, loopback, and FirstFlip-owned hosts). Shown here as the
+        reusable object SDKs model.
+      properties:
+        id: { type: string, description: "Unique id (`we_…`).", example: we_7f8e9d0c1b2a30415263748a }
+        mode: { type: string, enum: [test, live] }
+        url: { type: string, format: uri, maxLength: 2048 }
+        disabled_at: { type: [string, "null"], format: date-time, description: 'When the endpoint was disabled, or null.' }
+        created_at: { type: string, format: date-time }
+      required: [id, mode, url, created_at]
+
+  examples:
+    chargePending:
+      summary: A pending charge
+      value:
+        id: ch_test_0a1b2c3d4e5f60718293a4b5
+        object: charge
+        livemode: false
+        status: pending
+        amount: 25000
+        currency: NGN
+        description: Order #1048
+        reference: order_1048
+        metadata: { order_id: "1048", channel: web }
+        customer: { name: Jane Doe, email: jane@example.com }
+        payment:
+          asset: USDT
+          network: trc20
+          address: TEST-TRC20-9f8e7d6c5b4a39281706
+          asset_amount: 15.512345
+          fee_asset_amount: 1.55
+          rate_locked_until: "2026-11-01T12:49:56.000Z"
+        hosted_url: https://api.firstflip.ng/v1/sandbox/pay/0123456789abcdef0123456789abcdef
+        payment_link: null
+        created_at: "2026-11-01T12:34:56.000Z"
+        expires_at: "2026-11-01T13:34:56.000Z"
+        paid_at: null
+    chargePaid:
+      summary: A paid charge
+      value:
+        id: ch_test_0a1b2c3d4e5f60718293a4b5
+        object: charge
+        livemode: false
+        status: paid
+        amount: 25000
+        currency: NGN
+        description: Order #1048
+        reference: order_1048
+        metadata: { order_id: "1048", channel: web }
+        customer: { name: Jane Doe, email: jane@example.com }
+        payment:
+          asset: USDT
+          network: trc20
+          address: TEST-TRC20-9f8e7d6c5b4a39281706
+          asset_amount: 15.512345
+          fee_asset_amount: 1.55
+          rate_locked_until: "2026-11-01T12:49:56.000Z"
+        hosted_url: https://api.firstflip.ng/v1/sandbox/pay/0123456789abcdef0123456789abcdef
+        payment_link: null
+        created_at: "2026-11-01T12:34:56.000Z"
+        expires_at: "2026-11-01T13:34:56.000Z"
+        paid_at: "2026-11-01T12:40:12.000Z"
+    paymentLink:
+      summary: A payment link
+      value:
+        id: pl_test_1a2b3c4d5e6f70819a0b1c2d
+        object: payment_link
+        livemode: false
+        active: true
+        url: https://api.firstflip.ng/v1/sandbox/l/fedcba9876543210fedcba9876543210
+        amount: 10
+        currency: USD
+        description: Monthly membership
+        pay_asset: USDT
+        pay_network: trc20
+        metadata: { plan: pro }
+        max_uses: 100
+        uses: 7
+        created_at: "2026-11-01T12:34:56.000Z"
+    subAccount:
+      summary: A sandbox sub-account
+      value:
+        id: sa_test_2a3b4c5d6e7f80910a1b2c3d
+        object: subaccount
+        livemode: false
+        reference: tenant_1042
+        name: Ada's Store
+        email: ada@example.com
+        status: active
+        tier: 0
+        metadata: { plan: starter }
+        sandbox: { wallet_provisioned: false, accepts_real_money: false }
+        created_at: "2026-11-02T09:15:00.000Z"
+        updated_at: "2026-11-02T09:15:00.000Z"
+    eventChargePaid:
+      summary: A charge.paid webhook event
+      value:
+        id: evt_0a1b2c3d4e5f60718293a4b5
+        object: event
+        type: charge.paid
+        livemode: false
+        created_at: "2026-11-01T12:40:12.000Z"
+        data:
+          object:
+            id: ch_test_0a1b2c3d4e5f60718293a4b5
+            object: charge
+            livemode: false
+            status: paid
+            amount: 25000
+            currency: NGN
+            description: Order #1048
+            reference: order_1048
+            metadata: { order_id: "1048", channel: web }
+            customer: { name: Jane Doe, email: jane@example.com }
+            payment:
+              asset: USDT
+              network: trc20
+              address: TEST-TRC20-9f8e7d6c5b4a39281706
+              asset_amount: 15.512345
+              fee_asset_amount: 1.55
+              rate_locked_until: "2026-11-01T12:49:56.000Z"
+            hosted_url: https://api.firstflip.ng/v1/sandbox/pay/0123456789abcdef0123456789abcdef
+            payment_link: null
+            created_at: "2026-11-01T12:34:56.000Z"
+            expires_at: "2026-11-01T13:34:56.000Z"
+            paid_at: "2026-11-01T12:40:12.000Z"
+    chargeCancelled:
+      summary: A cancelled charge
+      value:
+        id: ch_test_0a1b2c3d4e5f60718293a4b5
+        object: charge
+        livemode: false
+        status: cancelled
+        amount: 25000
+        currency: NGN
+        description: Order #1048
+        reference: order_1048
+        metadata: { order_id: "1048", channel: web }
+        customer: { name: Jane Doe, email: jane@example.com }
+        payment:
+          asset: USDT
+          network: trc20
+          address: TEST-TRC20-9f8e7d6c5b4a39281706
+          asset_amount: 15.512345
+          fee_asset_amount: 1.55
+          rate_locked_until: "2026-11-01T12:49:56.000Z"
+        hosted_url: https://api.firstflip.ng/v1/sandbox/pay/0123456789abcdef0123456789abcdef
+        payment_link: null
+        created_at: "2026-11-01T12:34:56.000Z"
+        expires_at: "2026-11-01T13:34:56.000Z"
+        paid_at: null
+    chargeList:
+      summary: A page of charges
+      value:
+        object: list
+        data:
+          - id: ch_test_0a1b2c3d4e5f60718293a4b5
+            object: charge
+            livemode: false
+            status: pending
+            amount: 25000
+            currency: NGN
+            description: Order #1048
+            reference: order_1048
+            metadata: { order_id: "1048", channel: web }
+            customer: { name: Jane Doe, email: jane@example.com }
+            payment:
+              asset: USDT
+              network: trc20
+              address: TEST-TRC20-9f8e7d6c5b4a39281706
+              asset_amount: 15.512345
+              fee_asset_amount: 1.55
+              rate_locked_until: "2026-11-01T12:49:56.000Z"
+            hosted_url: https://api.firstflip.ng/v1/sandbox/pay/0123456789abcdef0123456789abcdef
+            payment_link: null
+            created_at: "2026-11-01T12:34:56.000Z"
+            expires_at: "2026-11-01T13:34:56.000Z"
+            paid_at: null
+        has_more: false
+    paymentLinkInactive:
+      summary: A deactivated payment link
+      value:
+        id: pl_test_1a2b3c4d5e6f70819a0b1c2d
+        object: payment_link
+        livemode: false
+        active: false
+        url: https://api.firstflip.ng/v1/sandbox/l/fedcba9876543210fedcba9876543210
+        amount: 10
+        currency: USD
+        description: Monthly membership
+        pay_asset: USDT
+        pay_network: trc20
+        metadata: { plan: pro }
+        max_uses: 100
+        uses: 7
+        created_at: "2026-11-01T12:34:56.000Z"
+    paymentLinkList:
+      summary: A page of payment links
+      value:
+        object: list
+        data:
+          - id: pl_test_1a2b3c4d5e6f70819a0b1c2d
+            object: payment_link
+            livemode: false
+            active: true
+            url: https://api.firstflip.ng/v1/sandbox/l/fedcba9876543210fedcba9876543210
+            amount: 10
+            currency: USD
+            description: Monthly membership
+            pay_asset: USDT
+            pay_network: trc20
+            metadata: { plan: pro }
+            max_uses: 100
+            uses: 7
+            created_at: "2026-11-01T12:34:56.000Z"
+        has_more: false
+    subAccountSuspended:
+      summary: A suspended sub-account
+      value:
+        id: sa_test_2a3b4c5d6e7f80910a1b2c3d
+        object: subaccount
+        livemode: false
+        reference: tenant_1042
+        name: Ada's Store
+        email: ada@example.com
+        status: suspended
+        tier: 0
+        metadata: { plan: starter }
+        sandbox: { wallet_provisioned: false, accepts_real_money: false }
+        created_at: "2026-11-02T09:15:00.000Z"
+        updated_at: "2026-11-03T08:30:00.000Z"
+    subAccountList:
+      summary: A page of sub-accounts
+      value:
+        object: list
+        data:
+          - id: sa_test_2a3b4c5d6e7f80910a1b2c3d
+            object: subaccount
+            livemode: false
+            reference: tenant_1042
+            name: Ada's Store
+            email: ada@example.com
+            status: active
+            tier: 0
+            metadata: { plan: starter }
+            sandbox: { wallet_provisioned: false, accepts_real_money: false }
+            created_at: "2026-11-02T09:15:00.000Z"
+            updated_at: "2026-11-02T09:15:00.000Z"
+        has_more: false
+    cardIssued:
+      summary: A freshly issued card
+      value:
+        id: card_test_3a4b5c6d7e8f90122a3b4c5d
+        object: card
+        livemode: false
+        reference: customer_8842_usd
+        status: active
+        currency: USD
+        balance: 0
+        number_last4: "4921"
+        expiry_month: 7
+        expiry_year: 2032
+        limits: { daily: null, per_transaction: null, monthly: null }
+        frozen_reason: null
+        closed_reason: null
+        created_at: "2026-11-04T10:00:00.000Z"
+        updated_at: "2026-11-04T10:00:00.000Z"
+        sandbox: { real_card: false, funds_movable: false }
+    cardFrozen:
+      summary: A frozen card, balance untouched
+      value:
+        id: card_test_3a4b5c6d7e8f90122a3b4c5d
+        object: card
+        livemode: false
+        reference: customer_8842_usd
+        status: frozen
+        currency: USD
+        balance: 175.5
+        number_last4: "4921"
+        expiry_month: 7
+        expiry_year: 2032
+        limits: { daily: 500, per_transaction: 100, monthly: 2000 }
+        frozen_reason: Customer reported a lost device
+        closed_reason: null
+        created_at: "2026-11-04T10:00:00.000Z"
+        updated_at: "2026-11-05T16:20:00.000Z"
+        sandbox: { real_card: false, funds_movable: false }
+    cardClosed:
+      summary: A closed card
+      value:
+        id: card_test_3a4b5c6d7e8f90122a3b4c5d
+        object: card
+        livemode: false
+        reference: customer_8842_usd
+        status: closed
+        currency: USD
+        balance: 0
+        number_last4: "4921"
+        expiry_month: 7
+        expiry_year: 2032
+        limits: { daily: 500, per_transaction: 100, monthly: 2000 }
+        frozen_reason: null
+        closed_reason: Customer left the programme
+        created_at: "2026-11-04T10:00:00.000Z"
+        updated_at: "2026-11-06T09:00:00.000Z"
+        sandbox: { real_card: false, funds_movable: false }
+    cardLimited:
+      summary: A card with all three spend ceilings set
+      value:
+        id: card_test_3a4b5c6d7e8f90122a3b4c5d
+        object: card
+        livemode: false
+        reference: customer_8842_usd
+        status: active
+        currency: USD
+        balance: 250
+        number_last4: "4921"
+        expiry_month: 7
+        expiry_year: 2032
+        limits: { daily: 500, per_transaction: 100, monthly: 2000 }
+        frozen_reason: null
+        closed_reason: null
+        created_at: "2026-11-04T10:00:00.000Z"
+        updated_at: "2026-11-05T11:30:00.000Z"
+        sandbox: { real_card: false, funds_movable: false }
+    cardList:
+      summary: A page of cards
+      value:
+        object: list
+        data:
+          - id: card_test_4b5c6d7e8f90122a3b4c5d6e
+            object: card
+            livemode: false
+            reference: customer_9001_usd
+            status: active
+            currency: USD
+            balance: 40
+            number_last4: "7310"
+            expiry_month: 2
+            expiry_year: 2033
+            limits: { daily: 250, per_transaction: null, monthly: null }
+            frozen_reason: null
+            closed_reason: null
+            created_at: "2026-11-05T08:00:00.000Z"
+            updated_at: "2026-11-05T08:00:00.000Z"
+            sandbox: { real_card: false, funds_movable: false }
+          - id: card_test_3a4b5c6d7e8f90122a3b4c5d
+            object: card
+            livemode: false
+            reference: customer_8842_usd
+            status: active
+            currency: USD
+            balance: 0
+            number_last4: "4921"
+            expiry_month: 7
+            expiry_year: 2032
+            limits: { daily: null, per_transaction: null, monthly: null }
+            frozen_reason: null
+            closed_reason: null
+            created_at: "2026-11-04T10:00:00.000Z"
+            updated_at: "2026-11-04T10:00:00.000Z"
+            sandbox: { real_card: false, funds_movable: false }
+        has_more: false
+    cardTopup:
+      summary: A funded card
+      value:
+        id: cardtxn_test_5e6f70819a0b1c2d3e4f5061
+        object: card_transaction
+        livemode: false
+        card_id: card_test_3a4b5c6d7e8f90122a3b4c5d
+        reference: cardtxn_test_5e6f70819a0b1c2d3e4f5061
+        type: topup
+        status: completed
+        currency: USD
+        amount: 100
+        balance_before: 150
+        balance_after: 250
+        merchant: null
+        decline_code: null
+        created_at: "2026-11-05T09:00:00.000Z"
+        sandbox: { settled: false }
+    cardWithdrawal:
+      summary: A withdrawal that the card could pay
+      value:
+        id: cardtxn_test_6f70819a0b1c2d3e4f506172
+        object: card_transaction
+        livemode: false
+        card_id: card_test_3a4b5c6d7e8f90122a3b4c5d
+        reference: cardtxn_test_6f70819a0b1c2d3e4f506172
+        type: withdrawal
+        status: completed
+        currency: USD
+        amount: 100
+        balance_before: 250
+        balance_after: 150
+        merchant: null
+        decline_code: null
+        created_at: "2026-11-05T09:30:00.000Z"
+        sandbox: { settled: false }
+    cardAuthorizationApproved:
+      summary: An authorization the card paid for
+      value:
+        id: cardtxn_test_70819a0b1c2d3e4f50617283
+        object: card_transaction
+        livemode: false
+        card_id: card_test_3a4b5c6d7e8f90122a3b4c5d
+        reference: cardtxn_test_70819a0b1c2d3e4f50617283
+        type: authorization
+        status: approved
+        currency: USD
+        amount: 42.5
+        balance_before: 250
+        balance_after: 207.5
+        merchant: BLUE ORIGIN TRAVEL
+        decline_code: null
+        created_at: "2026-11-05T10:15:00.000Z"
+        sandbox: { settled: false }
+    cardAuthorizationDeclined:
+      summary: An authorization the daily ceiling refused
+      value:
+        id: cardtxn_test_819a0b1c2d3e4f5061728394
+        object: card_transaction
+        livemode: false
+        card_id: card_test_3a4b5c6d7e8f90122a3b4c5d
+        reference: cardtxn_test_819a0b1c2d3e4f5061728394
+        type: authorization
+        status: declined
+        currency: USD
+        amount: 600
+        balance_before: 207.5
+        balance_after: 207.5
+        merchant: BLUE ORIGIN TRAVEL
+        decline_code: over_daily_limit
+        created_at: "2026-11-05T10:16:00.000Z"
+        sandbox: { settled: false }
+    cardTransactionList:
+      summary: One card's newest movements
+      value:
+        object: list
+        data:
+          - id: cardtxn_test_819a0b1c2d3e4f5061728394
+            object: card_transaction
+            livemode: false
+            card_id: card_test_3a4b5c6d7e8f90122a3b4c5d
+            reference: cardtxn_test_819a0b1c2d3e4f5061728394
+            type: authorization
+            status: declined
+            currency: USD
+            amount: 600
+            balance_before: 207.5
+            balance_after: 207.5
+            merchant: BLUE ORIGIN TRAVEL
+            decline_code: over_daily_limit
+            created_at: "2026-11-05T10:16:00.000Z"
+            sandbox: { settled: false }
+          - id: cardtxn_test_70819a0b1c2d3e4f50617283
+            object: card_transaction
+            livemode: false
+            card_id: card_test_3a4b5c6d7e8f90122a3b4c5d
+            reference: cardtxn_test_70819a0b1c2d3e4f50617283
+            type: authorization
+            status: approved
+            currency: USD
+            amount: 42.5
+            balance_before: 250
+            balance_after: 207.5
+            merchant: BLUE ORIGIN TRAVEL
+            decline_code: null
+            created_at: "2026-11-05T10:15:00.000Z"
+            sandbox: { settled: false }
+        has_more: true
+    eventChargeExpired:
+      summary: A charge.expired webhook event
+      value:
+        id: evt_1b2c3d4e5f60718293a4b5c6
+        object: event
+        type: charge.expired
+        livemode: false
+        created_at: "2026-11-01T13:34:56.000Z"
+        data:
+          object:
+            id: ch_test_0a1b2c3d4e5f60718293a4b5
+            object: charge
+            livemode: false
+            status: expired
+            amount: 25000
+            currency: NGN
+            description: Order #1048
+            reference: order_1048
+            metadata: { order_id: "1048", channel: web }
+            customer: { name: Jane Doe, email: jane@example.com }
+            payment:
+              asset: USDT
+              network: trc20
+              address: TEST-TRC20-9f8e7d6c5b4a39281706
+              asset_amount: 15.512345
+              fee_asset_amount: 1.55
+              rate_locked_until: "2026-11-01T12:49:56.000Z"
+            hosted_url: https://api.firstflip.ng/v1/sandbox/pay/0123456789abcdef0123456789abcdef
+            payment_link: null
+            created_at: "2026-11-01T12:34:56.000Z"
+            expires_at: "2026-11-01T13:34:56.000Z"
+            paid_at: null
+    eventChargeCancelled:
+      summary: A charge.cancelled webhook event
+      value:
+        id: evt_2c3d4e5f6071829304b5c6d7
+        object: event
+        type: charge.cancelled
+        livemode: false
+        created_at: "2026-11-01T12:50:00.000Z"
+        data:
+          object:
+            id: ch_test_0a1b2c3d4e5f60718293a4b5
+            object: charge
+            livemode: false
+            status: cancelled
+            amount: 25000
+            currency: NGN
+            description: Order #1048
+            reference: order_1048
+            metadata: { order_id: "1048", channel: web }
+            customer: { name: Jane Doe, email: jane@example.com }
+            payment:
+              asset: USDT
+              network: trc20
+              address: TEST-TRC20-9f8e7d6c5b4a39281706
+              asset_amount: 15.512345
+              fee_asset_amount: 1.55
+              rate_locked_until: "2026-11-01T12:49:56.000Z"
+            hosted_url: https://api.firstflip.ng/v1/sandbox/pay/0123456789abcdef0123456789abcdef
+            payment_link: null
+            created_at: "2026-11-01T12:34:56.000Z"
+            expires_at: "2026-11-01T13:34:56.000Z"
+            paid_at: null
+
+# Machine-readable error catalog (the single source for the Bible's error table, SDK error maps, and
+# Postman tests). Grounded in customError.js + every ApiError/apiError call on the /v1 path.
+x-error-codes:
+  - { code: invalid_json, type: invalid_request_error, http_status: 400, retryable: false, message: The request body is not valid JSON. }
+  - { code: invalid_parameter, type: invalid_request_error, http_status: 400, retryable: false, message: A parameter is missing or invalid; see param. }
+  - { code: amount_too_small, type: invalid_request_error, http_status: 400, retryable: false, message: amount is below the minimum charge. }
+  - { code: question_required, type: invalid_request_error, http_status: 400, retryable: false, message: "Assistant: a question is required." }
+  - { code: question_too_long, type: invalid_request_error, http_status: 400, retryable: false, message: "Assistant: the question exceeds 2000 characters." }
+  - { code: idempotency_key_required, type: idempotency_error, http_status: 400, retryable: false, message: An Idempotency-Key header is required on every POST. }
+  - { code: invalid_api_key, type: authentication_error, http_status: 401, retryable: false, message: "The API key is missing, malformed, revoked, or for the wrong mode." }
+  - { code: key_expired, type: authentication_error, http_status: 401, retryable: false, message: "This API key expired. Create or rotate a key to continue." }
+  - { code: ip_not_allowed, type: authentication_error, http_status: 403, retryable: false, message: The caller IP is not on this key's allow-list. }
+  - { code: business_inactive, type: authentication_error, http_status: 403, retryable: false, message: The business that owns this key is not active. }
+  - { code: api_access_paused, type: authentication_error, http_status: 403, retryable: false, message: "API access for this business is paused by FirstFlip. Contact FirstFlip support to resume it." }
+  - { code: insufficient_scope, type: authentication_error, http_status: 403, retryable: false, message: The key was created without the scope this endpoint requires; create a key that carries it. }
+  - { code: live_mode_unavailable, type: invalid_request_error, http_status: 403, retryable: false, message: Live mode is not open yet; use a test key. }
+  - { code: live_precondition_unmet, type: invalid_request_error, http_status: 403, retryable: false, message: "This live leg is waiting on a named platform rail; `error.param` says which one. Use a test key." }
+  - { code: card_closed, type: invalid_request_error, http_status: 409, retryable: false, message: "This card is closed; no action can ever succeed on it again. Issue a new card." }
+  - { code: card_not_active, type: invalid_request_error, http_status: 409, retryable: false, message: "Only an active card can be withdrawn from. Unfreeze it first." }
+  - { code: card_limit_reached, type: invalid_request_error, http_status: 409, retryable: false, message: "This API key already holds the maximum number of open cards. Close one, then issue again." }
+  - { code: insufficient_balance, type: invalid_request_error, http_status: 400, retryable: false, message: "The card does not hold that much. Fund it, or ask for a smaller amount." }
+  - { code: not_found, type: invalid_request_error, http_status: 404, retryable: false, message: No such route. }
+  - { code: resource_missing, type: invalid_request_error, http_status: 404, retryable: false, message: No such resource for this key. }
+  - { code: charge_not_pending, type: invalid_request_error, http_status: 409, retryable: false, message: The charge is not in a state that allows this action. }
+  - { code: subaccount_not_active, type: invalid_request_error, http_status: 409, retryable: false, message: The sub-account is no longer active and cannot be suspended. }
+  - { code: subaccount_not_suspended, type: invalid_request_error, http_status: 409, retryable: false, message: The sub-account is no longer suspended and cannot be activated. }
+  - { code: duplicate_reference, type: invalid_request_error, http_status: 409, retryable: false, message: A charge or sub-account with this reference already exists for the business. }
+  - { code: idempotency_in_progress, type: idempotency_error, http_status: 409, retryable: true, message: A request with this Idempotency-Key is still in progress; retry. }
+  - { code: body_too_large, type: invalid_request_error, http_status: 413, retryable: false, message: The request body is too large. }
+  - { code: idempotency_key_reused, type: idempotency_error, http_status: 422, retryable: false, message: This Idempotency-Key was already used with a different request body. }
+  - { code: rate_limited, type: rate_limit_error, http_status: 429, retryable: true, message: Too many requests; honor Retry-After. }
+  - { code: internal_error, type: api_error, http_status: 500, retryable: true, message: Something went wrong on FirstFlip's end. }
+  - { code: service_unavailable, type: api_error, http_status: 503, retryable: true, message: FirstFlip is briefly unavailable; retry shortly. }
+  - { code: rate_unavailable, type: api_error, http_status: 503, retryable: true, message: Exchange rates are briefly unavailable; retry. }
+  - { code: assistant_disabled, type: api_error, http_status: 503, retryable: false, message: The developer assistant is switched off. }
+  - { code: assistant_unavailable, type: api_error, http_status: 503, retryable: true, message: The assistant is temporarily unavailable. }
+
+  - { code: pricing_unavailable, type: api_error, http_status: 503, retryable: true, message: "See the service error message and param." }
+  - { code: invalid_otp, type: invalid_request_error, http_status: 400, retryable: false, message: "See the service error message and param." }
+  - { code: otp_not_pending, type: invalid_request_error, http_status: 409, retryable: false, message: "See the service error message and param." }
+  - { code: quote_not_ready, type: invalid_request_error, http_status: 409, retryable: false, message: "See the service error message and param." }
+  - { code: quote_already_used, type: invalid_request_error, http_status: 409, retryable: false, message: "See the service error message and param." }
+  - { code: trade_not_pending, type: invalid_request_error, http_status: 409, retryable: false, message: "See the service error message and param." }
+  - { code: account_inactive, type: invalid_request_error, http_status: 409, retryable: false, message: "See the service error message and param." }
+  - { code: bvn_not_verified, type: invalid_request_error, http_status: 409, retryable: false, message: "See the service error message and param." }
+  - { code: verification_not_pending, type: invalid_request_error, http_status: 409, retryable: false, message: "See the service error message and param." }
+  - { code: verification_unavailable, type: api_error, http_status: 503, retryable: true, message: "See the service error message and param." }
+  - { code: account_not_found, type: invalid_request_error, http_status: 400, retryable: false, message: "See the service error message and param." }
+  - { code: transfer_not_pending, type: invalid_request_error, http_status: 409, retryable: false, message: "See the service error message and param." }
+
+# Planned, NOT yet available. Do NOT integrate against anything here — these paths/fields/events do
+# not exist today. Listed so the roadmap is explicit and nothing is mistaken for live.
+x-roadmap:
+  status: Test mode only. Live mode (devplatform_live_enabled) is OFF; no real money moves through /v1.
+  planned:
+    - live_mode: Real charges once the concurrent receive rail is ready. Live keys (ffk_live_) then work unchanged.
+    - publishable_key_split: A publishable/secret (pk/sk) key split. Today there is one secret-key type.
+    - sub_account_live: Live provisioning for sub-accounts — a real wallet, KYC and settlement per tenant. Test-mode sub-accounts exist today (/subaccounts); live rails do not.
+    - live_virtual_cards: Live card issuing — issuer activation, a prefunded business balance, per-card settlement and a server-side step-up on fund/withdraw/close. The full test-mode lifecycle (issue, fund, spend, freeze, limit, close) is available today at /cards.
+    - live_transfers_payouts: Live money movement — internal transfers, crypto→bank payouts, withdrawals (idempotent + step-up + tier cap).
+    - sell_crypto: Quote/lock/execute selling crypto to a fiat balance over the API.
+    - additional_webhook_events: >
+        Charge events and the implemented local service events are documented in services.openapi.json.
+        Live card, payout, sell and sub-account KYC events remain planned.

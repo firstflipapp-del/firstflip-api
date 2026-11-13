@@ -1,0 +1,36 @@
+# FirstFlip API
+
+> FirstFlip business API integration documentation, OpenAPI contracts, scoped-key MCP tools and a portable integration skill.
+
+Public documentation does not grant API access. Business keys, scopes, verification and per-service controls govern requests. Test keys simulate supported operations; consult each operation's guide for live prerequisites. Fulfil payments from verified events or API status, never from a browser redirect.
+
+## Start here
+
+- [API overview](README.md)
+- [OpenAPI contract](openapi.yaml)
+- [Services contract](api/services.openapi.json)
+- [Agent capability manifest](.well-known/firstflip-integration.json)
+- [Generated tool catalog](agents/tools.json)
+- [Portable integration skill](skills/firstflip-integration/SKILL.md)
+- [Complete guide context](llms-full.txt)
+
+## Guides
+
+- [FirstFlip for AI coding agents](guides/agents.md)
+- [Assistant](guides/assistant.md)
+- [Authentication](guides/authentication.md)
+- [Virtual cards](guides/cards.md)
+- [Charges](guides/charges.md)
+- [FX quotes and trades (test mode)](guides/fx.md)
+- [Going live](guides/going-live.md)
+- [Idempotency and errors](guides/idempotency-and-errors.md)
+- [One-time passwords (test mode)](guides/one-time-passwords.md)
+- [Payment links](guides/payment-links.md)
+- [Payouts (test mode)](guides/payouts.md)
+- [Quickstart](guides/quickstart.md)
+- [Sub-accounts](guides/subaccounts.md)
+- [Testing](guides/testing.md)
+- [Verifications (test mode)](guides/verifications.md)
+- [Virtual accounts (test mode)](guides/virtual-accounts.md)
+- [Webhooks](guides/webhooks.md)
+- [Who controls what](guides/who-controls-what.md)

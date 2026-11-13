@@ -1,0 +1,11 @@
+{
+  "name": "@firstflip/node",
+  "version": "0.1.0-beta.1",
+  "description": "Official Node.js library for the FirstFlip API",
+  "main": "src/index.js",
+  "types": "src/index.d.ts",
+  "files": ["src", "README.md"],
+  "engines": { "node": ">=18" },
+  "scripts": { "test": "node --test test/*.test.js" },
+  "license": "MIT"
+}

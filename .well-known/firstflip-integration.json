@@ -1,0 +1,452 @@
+{
+  "name": "FirstFlip API",
+  "version": "0.1.0-beta.2",
+  "contract_version": "2026-11-02",
+  "api_base": "https://api.firstflip.ng/v1",
+  "documentation": {
+    "index": "../llms.txt",
+    "full": "../llms-full.txt",
+    "openapi": "../openapi.yaml"
+  },
+  "mcp": {
+    "transport": "stdio",
+    "package": "@firstflip/agents",
+    "version": "0.1.0-beta.2",
+    "command": "firstflip-mcp",
+    "secret_environment_variable": "FIRSTFLIP_SECRET_KEY",
+    "registry_manifest": "../agents/server.json"
+  },
+  "skill": "../skills/firstflip-integration/SKILL.md",
+  "access": {
+    "public_discovery": true,
+    "calls_require_business_api_key": true,
+    "scopes_enforced_by_api": true,
+    "live_eligibility_and_service_gates_enforced_by_api": true
+  },
+  "operations": [
+    {
+      "name": "activateSubAccount",
+      "method": "POST",
+      "path": "/subaccounts/{id}/activate",
+      "scope": "subaccounts:write",
+      "read_only": false,
+      "explicit_idempotency_key_for_mcp": true
+    },
+    {
+      "name": "askAssistant",
+      "method": "POST",
+      "path": "/assistant",
+      "scope": "assistant:ask",
+      "read_only": false,
+      "explicit_idempotency_key_for_mcp": false
+    },
+    {
+      "name": "bulkTransfers",
+      "method": "POST",
+      "path": "/transfers/bulk",
+      "scope": "transfers:write",
+      "read_only": false,
+      "explicit_idempotency_key_for_mcp": true
+    },
+    {
+      "name": "bulkVirtualAccounts",
+      "method": "POST",
+      "path": "/virtual_accounts/bulk",
+      "scope": "virtual_accounts:write",
+      "read_only": false,
+      "explicit_idempotency_key_for_mcp": true
+    },
+    {
+      "name": "cancelCharge",
+      "method": "POST",
+      "path": "/charges/{id}/cancel",
+      "scope": "charges:write",
+      "read_only": false,
+      "explicit_idempotency_key_for_mcp": true
+    },
+    {
+      "name": "closeCard",
+      "method": "POST",
+      "path": "/cards/{id}/close",
+      "scope": "cards:write",
+      "read_only": false,
+      "explicit_idempotency_key_for_mcp": true
+    },
+    {
+      "name": "createBvnVerification",
+      "method": "POST",
+      "path": "/verifications/bvn",
+      "scope": "verifications:write",
+      "read_only": false,
+      "explicit_idempotency_key_for_mcp": true
+    },
+    {
+      "name": "createCard",
+      "method": "POST",
+      "path": "/cards",
+      "scope": "cards:write",
+      "read_only": false,
+      "explicit_idempotency_key_for_mcp": true
+    },
+    {
+      "name": "createCharge",
+      "method": "POST",
+      "path": "/charges",
+      "scope": "charges:write",
+      "read_only": false,
+      "explicit_idempotency_key_for_mcp": true
+    },
+    {
+      "name": "createFxQuote",
+      "method": "POST",
+      "path": "/fx/quotes",
+      "scope": "fx:write",
+      "read_only": false,
+      "explicit_idempotency_key_for_mcp": true
+    },
+    {
+      "name": "createFxTrade",
+      "method": "POST",
+      "path": "/fx/trades",
+      "scope": "fx:write",
+      "read_only": false,
+      "explicit_idempotency_key_for_mcp": true
+    },
+    {
+      "name": "createOtp",
+      "method": "POST",
+      "path": "/otps",
+      "scope": "otps:write",
+      "read_only": false,
+      "explicit_idempotency_key_for_mcp": true
+    },
+    {
+      "name": "createPaymentLink",
+      "method": "POST",
+      "path": "/payment_links",
+      "scope": "payment_links:write",
+      "read_only": false,
+      "explicit_idempotency_key_for_mcp": true
+    },
+    {
+      "name": "createSubAccount",
+      "method": "POST",
+      "path": "/subaccounts",
+      "scope": "subaccounts:write",
+      "read_only": false,
+      "explicit_idempotency_key_for_mcp": true
+    },
+    {
+      "name": "createTransfer",
+      "method": "POST",
+      "path": "/transfers",
+      "scope": "transfers:write",
+      "read_only": false,
+      "explicit_idempotency_key_for_mcp": true
+    },
+    {
+      "name": "createVirtualAccount",
+      "method": "POST",
+      "path": "/virtual_accounts",
+      "scope": "virtual_accounts:write",
+      "read_only": false,
+      "explicit_idempotency_key_for_mcp": true
+    },
+    {
+      "name": "deactivatePaymentLink",
+      "method": "POST",
+      "path": "/payment_links/{id}/deactivate",
+      "scope": "payment_links:write",
+      "read_only": false,
+      "explicit_idempotency_key_for_mcp": true
+    },
+    {
+      "name": "deactivateVirtualAccount",
+      "method": "POST",
+      "path": "/virtual_accounts/{id}/deactivate",
+      "scope": "virtual_accounts:write",
+      "read_only": false,
+      "explicit_idempotency_key_for_mcp": true
+    },
+    {
+      "name": "freezeCard",
+      "method": "POST",
+      "path": "/cards/{id}/freeze",
+      "scope": "cards:write",
+      "read_only": false,
+      "explicit_idempotency_key_for_mcp": true
+    },
+    {
+      "name": "fundCard",
+      "method": "POST",
+      "path": "/cards/{id}/fund",
+      "scope": "cards:write",
+      "read_only": false,
+      "explicit_idempotency_key_for_mcp": true
+    },
+    {
+      "name": "getAccount",
+      "method": "GET",
+      "path": "/account",
+      "scope": "account:read",
+      "read_only": true,
+      "explicit_idempotency_key_for_mcp": false
+    },
+    {
+      "name": "getBvnVerification",
+      "method": "GET",
+      "path": "/verifications/bvn/{id}",
+      "scope": "verifications:read",
+      "read_only": true,
+      "explicit_idempotency_key_for_mcp": false
+    },
+    {
+      "name": "getCard",
+      "method": "GET",
+      "path": "/cards/{id}",
+      "scope": "cards:read",
+      "read_only": true,
+      "explicit_idempotency_key_for_mcp": false
+    },
+    {
+      "name": "getCharge",
+      "method": "GET",
+      "path": "/charges/{id}",
+      "scope": "charges:read",
+      "read_only": true,
+      "explicit_idempotency_key_for_mcp": false
+    },
+    {
+      "name": "getFxQuote",
+      "method": "GET",
+      "path": "/fx/quotes/{id}",
+      "scope": "fx:read",
+      "read_only": true,
+      "explicit_idempotency_key_for_mcp": false
+    },
+    {
+      "name": "getFxTrade",
+      "method": "GET",
+      "path": "/fx/trades/{id}",
+      "scope": "fx:read",
+      "read_only": true,
+      "explicit_idempotency_key_for_mcp": false
+    },
+    {
+      "name": "getOtp",
+      "method": "GET",
+      "path": "/otps/{id}",
+      "scope": "otps:read",
+      "read_only": true,
+      "explicit_idempotency_key_for_mcp": false
+    },
+    {
+      "name": "getOtpPricing",
+      "method": "GET",
+      "path": "/otps/pricing",
+      "scope": "otps:read",
+      "read_only": true,
+      "explicit_idempotency_key_for_mcp": false
+    },
+    {
+      "name": "getPaymentLink",
+      "method": "GET",
+      "path": "/payment_links/{id}",
+      "scope": "payment_links:read",
+      "read_only": true,
+      "explicit_idempotency_key_for_mcp": false
+    },
+    {
+      "name": "getSubAccount",
+      "method": "GET",
+      "path": "/subaccounts/{id}",
+      "scope": "subaccounts:read",
+      "read_only": true,
+      "explicit_idempotency_key_for_mcp": false
+    },
+    {
+      "name": "getTransfer",
+      "method": "GET",
+      "path": "/transfers/{id}",
+      "scope": "transfers:read",
+      "read_only": true,
+      "explicit_idempotency_key_for_mcp": false
+    },
+    {
+      "name": "getTransferBatch",
+      "method": "GET",
+      "path": "/transfers/bulk/{id}",
+      "scope": "transfers:read",
+      "read_only": true,
+      "explicit_idempotency_key_for_mcp": false
+    },
+    {
+      "name": "getVirtualAccount",
+      "method": "GET",
+      "path": "/virtual_accounts/{id}",
+      "scope": "virtual_accounts:read",
+      "read_only": true,
+      "explicit_idempotency_key_for_mcp": false
+    },
+    {
+      "name": "getVirtualAccountBatch",
+      "method": "GET",
+      "path": "/virtual_accounts/bulk/{id}",
+      "scope": "virtual_accounts:read",
+      "read_only": true,
+      "explicit_idempotency_key_for_mcp": false
+    },
+    {
+      "name": "listCards",
+      "method": "GET",
+      "path": "/cards",
+      "scope": "cards:read",
+      "read_only": true,
+      "explicit_idempotency_key_for_mcp": false
+    },
+    {
+      "name": "listCardTransactions",
+      "method": "GET",
+      "path": "/cards/{id}/transactions",
+      "scope": "cards:read",
+      "read_only": true,
+      "explicit_idempotency_key_for_mcp": false
+    },
+    {
+      "name": "listCharges",
+      "method": "GET",
+      "path": "/charges",
+      "scope": "charges:read",
+      "read_only": true,
+      "explicit_idempotency_key_for_mcp": false
+    },
+    {
+      "name": "listPaymentLinks",
+      "method": "GET",
+      "path": "/payment_links",
+      "scope": "payment_links:read",
+      "read_only": true,
+      "explicit_idempotency_key_for_mcp": false
+    },
+    {
+      "name": "listSubAccounts",
+      "method": "GET",
+      "path": "/subaccounts",
+      "scope": "subaccounts:read",
+      "read_only": true,
+      "explicit_idempotency_key_for_mcp": false
+    },
+    {
+      "name": "listTransfers",
+      "method": "GET",
+      "path": "/transfers",
+      "scope": "transfers:read",
+      "read_only": true,
+      "explicit_idempotency_key_for_mcp": false
+    },
+    {
+      "name": "resolveBankAccount",
+      "method": "POST",
+      "path": "/verifications/bank_account",
+      "scope": "verifications:write",
+      "read_only": false,
+      "explicit_idempotency_key_for_mcp": true
+    },
+    {
+      "name": "simulateBvnVerification",
+      "method": "POST",
+      "path": "/verifications/bvn/{id}/simulate",
+      "scope": "verifications:write",
+      "read_only": false,
+      "explicit_idempotency_key_for_mcp": true
+    },
+    {
+      "name": "simulateCardAuthorization",
+      "method": "POST",
+      "path": "/cards/{id}/simulate_authorization",
+      "scope": "cards:write",
+      "read_only": false,
+      "explicit_idempotency_key_for_mcp": true
+    },
+    {
+      "name": "simulateChargePayment",
+      "method": "POST",
+      "path": "/charges/{id}/simulate_payment",
+      "scope": "charges:write",
+      "read_only": false,
+      "explicit_idempotency_key_for_mcp": true
+    },
+    {
+      "name": "simulateFxQuote",
+      "method": "POST",
+      "path": "/fx/quotes/{id}/simulate",
+      "scope": "fx:write",
+      "read_only": false,
+      "explicit_idempotency_key_for_mcp": true
+    },
+    {
+      "name": "simulateFxTrade",
+      "method": "POST",
+      "path": "/fx/trades/{id}/simulate",
+      "scope": "fx:write",
+      "read_only": false,
+      "explicit_idempotency_key_for_mcp": true
+    },
+    {
+      "name": "simulateTransfer",
+      "method": "POST",
+      "path": "/transfers/{id}/simulate",
+      "scope": "transfers:write",
+      "read_only": false,
+      "explicit_idempotency_key_for_mcp": true
+    },
+    {
+      "name": "simulateVirtualAccountPayment",
+      "method": "POST",
+      "path": "/virtual_accounts/{id}/simulate_payment",
+      "scope": "virtual_accounts:write",
+      "read_only": false,
+      "explicit_idempotency_key_for_mcp": true
+    },
+    {
+      "name": "suspendSubAccount",
+      "method": "POST",
+      "path": "/subaccounts/{id}/suspend",
+      "scope": "subaccounts:write",
+      "read_only": false,
+      "explicit_idempotency_key_for_mcp": true
+    },
+    {
+      "name": "unfreezeCard",
+      "method": "POST",
+      "path": "/cards/{id}/unfreeze",
+      "scope": "cards:write",
+      "read_only": false,
+      "explicit_idempotency_key_for_mcp": true
+    },
+    {
+      "name": "updateCardSpendLimits",
+      "method": "POST",
+      "path": "/cards/{id}/spend_limits",
+      "scope": "cards:write",
+      "read_only": false,
+      "explicit_idempotency_key_for_mcp": true
+    },
+    {
+      "name": "validateOtp",
+      "method": "POST",
+      "path": "/otps/{id}/validate",
+      "scope": "otps:write",
+      "read_only": false,
+      "explicit_idempotency_key_for_mcp": true
+    },
+    {
+      "name": "withdrawCard",
+      "method": "POST",
+      "path": "/cards/{id}/withdraw",
+      "scope": "cards:write",
+      "read_only": false,
+      "explicit_idempotency_key_for_mcp": true
+    }
+  ]
+}
