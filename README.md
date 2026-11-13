@@ -8,6 +8,18 @@ guides and the Postman collection.
 > are simulated and no money moves. Live keys are not issued yet. When live mode opens, your
 > integration does not change: same endpoints, same objects, same webhooks.
 
+## Download this beta
+
+The MCP server, CLI and portable integration skill are available from the [beta release](https://github.com/firstflipapp-del/firstflip-api/releases/tag/v0.1.0-beta.2). npm and MCP Registry listings are separate publication steps; use the downloadable package while those listings are pending.
+
+Run the MCP process with Node.js 18 or newer:
+
+```bash
+npx --yes --package https://github.com/firstflipapp-del/firstflip-api/releases/download/v0.1.0-beta.2/firstflip-agents-0.1.0-beta.2.tgz firstflip-mcp
+```
+
+Set `FIRSTFLIP_SECRET_KEY` through your MCP client's secure environment configuration. The CLI is `firstflip` from the same package; the skill ZIP contains the complete `firstflip-integration` directory and its references. The release does not enable live payment services: key mode, business verification, scopes and each service's readiness still apply.
+
 ## Quick hints
 
 Short points that hold on every page — the things that cost the most support time.
